@@ -23,6 +23,10 @@ METADATA_SCHEMA = {
     "_row_number": "INTEGER",
 }
 
+# Columnas obligatorias (mode REQUIRED). snapshot_date es la clave de
+# particion, asi que BigQuery la exige NOT NULL.
+REQUIRED_FIELDS = {"snapshot_date"}
+
 
 # =============================================================================
 # CLIENTE
@@ -104,6 +108,7 @@ def _build_schema(df: pd.DataFrame) -> list[bigquery.SchemaField]:
         bigquery.SchemaField(
             column,
             METADATA_SCHEMA.get(column, "STRING"),
+            mode="REQUIRED" if column in REQUIRED_FIELDS else "NULLABLE",
         )
         for column in df.columns
     ]
