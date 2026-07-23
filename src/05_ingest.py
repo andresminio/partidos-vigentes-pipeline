@@ -9,6 +9,9 @@ loader = importlib.import_module("04_bigquery_loader")
 
 def main():
 
+    # Asegura que exista el dataset antes de cargar.
+    loader.ensure_dataset()
+
     # Solo nombres validos, ordenados cronologicamente por la fecha
     # del nombre del archivo (no alfabeticamente).
     archivos = sorted(

@@ -4,7 +4,7 @@ DATASET = "raw"
 TABLE = "partidos_snapshot"
 
 # Region del dataset de BigQuery (debe coincidir con la del bucket).
-LOCATION = "southamerica-east1"
+LOCATION = "US"
 
 # Solo se ingestan archivos que matcheen este patron de nombre.
 # Ej: "Partidos Vigentes al 31_01_2026.xlsx"

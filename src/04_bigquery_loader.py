@@ -40,6 +40,23 @@ def _table_id() -> str:
     return f"{PROJECT_ID}.{DATASET}.{TABLE}"
 
 
+def ensure_dataset() -> None:
+    """
+    Crea el dataset si no existe (el load crea la tabla, no el dataset).
+    """
+
+    client = get_bigquery_client()
+    dataset_id = f"{PROJECT_ID}.{DATASET}"
+
+    try:
+        client.get_dataset(dataset_id)
+    except NotFound:
+        dataset = bigquery.Dataset(dataset_id)
+        dataset.location = LOCATION
+        client.create_dataset(dataset)
+        print(f"Dataset creado: {dataset_id} ({LOCATION})")
+
+
 # =============================================================================
 # CONSULTAS
 # =============================================================================
