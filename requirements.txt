@@ -2,3 +2,4 @@ google-cloud-storage
 pandas
 openpyxl
 google-cloud-bigquery
+pyarrow
