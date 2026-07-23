@@ -1,0 +1,32 @@
+Excel mensual
+                       │
+                       ▼
+          Cloud Storage (bucket)
+                       │
+                       ▼
+      Python (repositorio Git)
+        - detecta archivos nuevos
+        - valida nombre
+        - extrae snapshot_date
+        - lee Excel
+        - agrega metadatos
+        - carga BigQuery
+                       │
+                       ▼
+        BigQuery (raw.partidos_snapshot)
+                       │
+                       ▼
+                    dbt
+             staging + snapshots
+                       │
+                       ▼
+                    marts
+                       │
+                       ▼
+                   Tableau
+                       │
+                       ▼
+                   Airflow
+          (solo ejecuta el script)
+
+diseño modular

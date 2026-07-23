@@ -1,0 +1,32 @@
+# === Credenciales GCP / secretos (NUNCA subir) ===
+*.json
+!package.json
+key.json
+credentials.json
+service-account*.json
+*-key.json
+.env
+.env.*
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# === dbt (cuando se agregue) ===
+target/
+dbt_packages/
+logs/
+
+# === Archivos temporales de Office ===
+~$*
+*.tmp
+
+# === Sistema operativo / editores ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
