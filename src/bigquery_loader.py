@@ -1,20 +1,9 @@
-# =============================================================================
 # IMPORTS
-# =============================================================================
-
-import importlib
-
 import pandas as pd
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 
-# Modulo con prefijo numerico: se carga con importlib.
-config = importlib.import_module("01_config")
-PROJECT_ID = config.PROJECT_ID
-DATASET = config.DATASET
-TABLE = config.TABLE
-LOCATION = config.LOCATION
-
+from config import PROJECT_ID, DATASET, TABLE, LOCATION
 
 # Columnas de metadatos con tipo propio; el resto se carga como STRING.
 METADATA_SCHEMA = {
@@ -27,11 +16,7 @@ METADATA_SCHEMA = {
 # particion, asi que BigQuery la exige NOT NULL.
 REQUIRED_FIELDS = {"snapshot_date"}
 
-
-# =============================================================================
 # CLIENTE
-# =============================================================================
-
 def get_bigquery_client() -> bigquery.Client:
     """
     Devuelve un cliente autenticado de BigQuery.
@@ -61,9 +46,7 @@ def ensure_dataset() -> None:
         print(f"Dataset creado: {dataset_id} ({LOCATION})")
 
 
-# =============================================================================
 # CONSULTAS
-# =============================================================================
 
 def get_loaded_files() -> set[str]:
     """
@@ -95,9 +78,7 @@ def already_loaded(filename: str) -> bool:
     return filename in get_loaded_files()
 
 
-# =============================================================================
 # CARGA
-# =============================================================================
 
 def _build_schema(df: pd.DataFrame) -> list[bigquery.SchemaField]:
     """

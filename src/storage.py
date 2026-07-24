@@ -1,13 +1,9 @@
-import importlib
 from io import BytesIO
 
 import pandas as pd
 from google.cloud import storage
 
-# Los modulos empiezan con digito, asi que no se pueden importar
-# con "import" normal. Se cargan con importlib.
-config = importlib.import_module("01_config")
-BUCKET = config.BUCKET
+from config import BUCKET
 
 
 def get_storage_client():

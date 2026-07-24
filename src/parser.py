@@ -1,14 +1,11 @@
 # IMPORTS
-import importlib
 import re
 import unicodedata
 from datetime import datetime, timezone
 
 import pandas as pd
 
-# Modulo con prefijo numerico: se carga con importlib.
-config = importlib.import_module("01_config")
-FILENAME_PATTERN = config.FILENAME_PATTERN
+from config import FILENAME_PATTERN
 
 
 # CONSTANTES
@@ -18,7 +15,6 @@ NAME_PATTERN = re.compile(FILENAME_PATTERN)
 
 
 # VALIDACION DE NOMBRE
-
 
 def is_valid_filename(filename: str) -> bool:
     """
@@ -31,7 +27,6 @@ def is_valid_filename(filename: str) -> bool:
 
 
 # EXTRACCION DE METADATOS
-
 
 def extract_snapshot_date(filename: str):
     """
@@ -58,7 +53,6 @@ def extract_snapshot_date(filename: str):
 
 # NORMALIZACION
 
-
 def _strip_accents(text: str) -> str:
     """Quita acentos y diacriticos (a, e, n, ...)."""
     normalized = unicodedata.normalize("NFKD", text)
@@ -82,7 +76,6 @@ def normalize_column_name(column: str) -> str:
 
 
 # TRANSFORMACION DEL DATAFRAME
-
 
 def parse_snapshot(
     df: pd.DataFrame,

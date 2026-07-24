@@ -1,10 +1,6 @@
-import importlib
-
-# Los modulos empiezan con digito, asi que se cargan con importlib
-# en lugar de "from ... import ...".
-storage = importlib.import_module("02_storage")
-parser = importlib.import_module("03_parser")
-loader = importlib.import_module("04_bigquery_loader")
+import storage
+import parser
+import bigquery_loader as loader
 
 
 def main():

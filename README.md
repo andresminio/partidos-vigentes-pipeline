@@ -57,15 +57,15 @@ Airflow (orquestación mensual)
 
 ## Estructura del repositorio
 
-Los módulos siguen un diseño modular con prefijo numérico según orden de ejecución:
+Nombres descriptivos por responsabilidad. El orden de ejecución lo define `ingest.py` (el orquestador) y el diagrama de arquitectura de arriba:
 
 | Módulo | Descripción |
 |--------|-----|
-| `01_config.py` | Configuración (project_id, bucket, dataset, región, patrón de archivos) |
-| `02_storage.py` | Interacción con Cloud Storage (listado y lectura de archivos) |
-| `03_parser.py` | Validación, extracción de `snapshot_date`, normalización de columnas, incorporación de metadatos |
-| `04_bigquery_loader.py` | Carga a `raw.partidos_snapshot` en BigQuery (schema explícito, partición, clustering) |
-| `05_ingest.py` | Orquestador (Punto de entrada) |
+| `config.py` | Define las constantes de configuración (project_id, bucket, dataset, región, patrón de archivos). |
+| `storage.py` | Define funciones para interactuar con Cloud Storage (listar y leer archivos). |
+| `parser.py` | Define funciones de validación, extracción de `snapshot_date`, normalización de columnas e incorporación de metadatos. |
+| `bigquery_loader.py` | Define funciones para crear el dataset y cargar a `raw.partidos_snapshot` (schema explícito, partición, clustering). |
+| `ingest.py` | Orquestador y **punto de entrada**: ejecuta las funciones de los módulos anteriores, coordinándolas en orden. |
 
 ## Esquema y metadatos
 

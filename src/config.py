@@ -3,7 +3,7 @@ BUCKET = "partidos-vigentes-raw"
 DATASET = "raw"
 TABLE = "partidos_snapshot"
 
-# Region del dataset de BigQuery (debe coincidir con la del bucket).
+# Region del dataset de BigQuery 
 LOCATION = "US"
 
 # Solo se ingestan archivos que matcheen este patron de nombre.
