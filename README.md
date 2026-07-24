@@ -1,12 +1,19 @@
-# Pipeline — Registro de Partidos Políticos (CNE → GCP)
+# Pipeline — Registro de Partidos Políticos 
 
-Pipeline mensual que ingesta el listado de partidos políticos vigentes publicado por
-la Cámara Nacional Electoral (CNE), lo historiza en BigQuery y lo deja listo para
-consumo en Tableau. La capa cruda (`raw`) guarda el Excel **tal cual llega**, con
-metadatos de trazabilidad; toda la limpieza y el histórico (SCD tipo 2) viven en dbt.
+Pipeline mensual que ingesta el listado oficial de partidos políticos vigentes publicado por la Cámara Nacional Electoral (CNE), lo historiza en BigQuery y lo deja listo para consumo analítico en Tableau.
+
+La capa raw preserva los datos tal cual fueron generados por la fuente, incorporando metadatos de trazabilidad. La transformación, limpieza e historización (SCD Tipo 2) se implementan en dbt.
+
+## Decisiones de diseño
+
+- Raw inmutable: se preserva una capa raw sin transformaciones para auditoría
+- Separación de responsabilidades: ingestión (Python) vs transformación (dbt)
+- SCD Tipo 2: historización completa de cambios en entidades
+- Trazabilidad: metadatos por fila para lineage
+- Determinismo: snapshot_date derivado del nombre del archivo 
+- Idempotencia: prevención de duplicados por diseño a partir de metadatos generados (_source_file)
 
 ## Arquitectura
-
 ```
 Excel mensual
       │
@@ -14,76 +21,88 @@ Excel mensual
 Cloud Storage (bucket)
       │
       ▼
-Python (este repo)
-  - detecta archivos nuevos
-  - valida nombre
-  - extrae snapshot_date
-  - lee Excel
-  - agrega metadatos
-  - carga a BigQuery
+Python (ingest) 
+- detección de archivos nuevos 
+- validación de nombres
+- extracción de snapshot_date 
+- parsing de Excel 
+- enriquecimiento con metadatos 
+- carga a BigQuery
       │
       ▼
-BigQuery (raw.partidos_snapshot)   ← particionada por mes, clustered por distrito
+BigQuery (raw.partidos_snapshot)
+- particionada por snapshot_date (MONTH) 
+- clusterizada por distrito  
       │
       ▼
-dbt  (staging + snapshots SCD2)
+dbt  
+- staging 
+- snapshots (SCD Tipo 2) 
+- marts
       │
       ▼
-marts
+Tableau (BI)
       │
       ▼
-Tableau
-      │
-   (Airflow ejecuta el script cada fin de mes)
+Airflow (orquestación mensual)
 ```
 
 ## Stack
 
-- **Ingesta:** Python 3.11+ (pandas, openpyxl)
+- **Ingesta:** Python (pandas, openpyxl)
 - **Almacenamiento:** Google Cloud Storage + BigQuery
 - **Transformación:** dbt (staging, snapshots SCD2, marts)
-- **Orquestación:** Airflow (mensual)
-- **BI:** Tableau
+- **Orquestación:** Apache Airflow (ejecución mensual)
+- **Visualización:** Tableau
 
-## Estructura
+## Estructura del repositorio
 
-Los módulos llevan prefijo numérico según el orden de ejecución:
+Los módulos siguen un diseño modular con prefijo numérico según orden de ejecución:
 
-| Módulo | Rol |
+| Módulo | Descripción |
 |--------|-----|
-| `01_config.py` | IDs de proyecto/bucket/dataset, región y patrón de nombre de archivo |
-| `02_storage.py` | Lista y lee los Excel desde Cloud Storage |
-| `03_parser.py` | Valida el nombre, extrae `snapshot_date`, normaliza columnas, agrega metadatos |
-| `04_bigquery_loader.py` | Carga a `raw.partidos_snapshot` (schema explícito, partición, clustering) |
-| `05_ingest.py` | Orquestador: detecta nuevos, ordena por fecha y carga. **Punto de entrada.** |
+| `01_config.py` | Configuración (project_id, bucket, dataset, región, patrón de archivos) |
+| `02_storage.py` | Interacción con Cloud Storage (listado y lectura de archivos) |
+| `03_parser.py` | Validación, extracción de `snapshot_date`, normalización de columnas, incorporación de metadatos |
+| `04_bigquery_loader.py` | Carga a `raw.partidos_snapshot` en BigQuery (schema explícito, partición, clustering) |
+| `05_ingest.py` | Orquestador (Punto de entrada) |
 
-> Nota: como los nombres empiezan con dígito, los imports internos usan
-> `importlib.import_module(...)` en lugar de `from ... import ...`.
+## Esquema y metadatos
 
-## Metadatos agregados a cada fila
+Esquema 
 
-- `snapshot_date` — fecha de corte (derivada del nombre del archivo)
-- `_source_file` — archivo de origen
-- `_ingested_at` — timestamp de carga (UTC)
-- `_row_number` — número de fila dentro del Excel
+| Campo | Descripción |
+|------|-------------|
+| `orden` | tipo de organización partidaria: DISTRITO o NACIONAL. Estable por entidad. Origen del prefijo D o N de la clave en staging. |
+| `nro_orden` | código de distrito, sin padding. Para partido NACIONAL es el distrito del juzgado sede. |
+| `distrito` | nombre del distrito. |
+| `nro_partido` | número del partido en el distrito, sin padding. Los distritales que integran un nacional comparten su número. |
+| `nombre` | denominación del partido. Los distritales que integran un nacional comparten su nombre. |
+| `sigla` | siglas partidarias. Puede venir vacía o con separadores diferentes entre letras. |
+| `fecha_reconocimiento` | Fecha de reconocimiento. Sin parsear. El parseo tolerante a formatos mixtos vive en staging. |
+| `integra_on` | indicador binario de si el partido de distrito integra un partido nacional. No identifica a cuál, lo que se deriva del número y nombre del partido. |
 
-## Cómo correr
+Metadatos incorporados
 
-```bash
-pip install -r requirements.txt
+| Campo | Descripción |
+|------|-------------|
+| `snapshot_date` | Fecha de corte (derivada del nombre del archivo). |
+| `_source_file` | Nombre archivo de origen. |
+| `_ingested_at` | Timestamp de carga (UTC). |
+| `_row_number` | Número de fila dentro del Excel. |
 
-# Autenticación con GCP (una vez)
-gcloud auth application-default login
+## Idempotencia
 
-# Ejecutar la ingesta
-python 05_ingest.py
-```
+El pipeline detecta qué archivos del bucket aún no fueron procesados (comparando contra _source_file en BigQuery), los ingesta en orden cronológico y omite los ya cargados. Ejecutar el pipeline múltiples veces no genera duplicados.
 
-El script detecta qué archivos del bucket todavía no fueron cargados (mirando
-`_source_file` en BigQuery), los procesa en orden cronológico y saltea los ya
-cargados. Es idempotente: correrlo dos veces no duplica datos.
 
 ## Fuente
 
-Registro Nacional de Agrupaciones Políticas — Cámara Nacional Electoral (CNE).
-Datos públicos. ~700 partidos vigentes por corte mensual.
+Registro Nacional de Agrupaciones Políticas
+Cámara Nacional Electoral (CNE) — Argentina
+Publicación mensual en Excel
+~700 registros por snapshot
+
+## Autor
+
+Andrés Miño - andresminio@gmail.com
