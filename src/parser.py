@@ -11,7 +11,9 @@ from config import FILENAME_PATTERN
 # CONSTANTES
 
 DATE_PATTERN = re.compile(r"(\d{2})_(\d{2})_(\d{4})")
-NAME_PATTERN = re.compile(FILENAME_PATTERN)
+# IGNORECASE: la fuente (CNE) publica con capitalizacion inconsistente
+# (ej. "PARTIDOS VIGENTES AL ..."), no queremos que un mes se caiga por eso.
+NAME_PATTERN = re.compile(FILENAME_PATTERN, re.IGNORECASE)
 
 
 # VALIDACION DE NOMBRE
