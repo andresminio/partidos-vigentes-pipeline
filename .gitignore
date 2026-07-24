@@ -21,6 +21,12 @@ target/
 dbt_packages/
 logs/
 
+# === Datos (viven en el bucket de Cloud Storage, no en git) ===
+data/
+
+# === Documentacion de diseno (binarios docx; el README ya cubre el diseno) ===
+docs/
+
 # === Archivos temporales de Office ===
 ~$*
 *.tmp
