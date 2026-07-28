@@ -41,3 +41,15 @@ def read_excel(blob_name: str) -> pd.DataFrame:
     excel_bytes = blob.download_as_bytes()
 
     return pd.read_excel(BytesIO(excel_bytes), dtype=str)
+
+
+def upload_file(local_path, blob_name: str) -> None:
+    """
+    Sube un archivo local al bucket con el nombre indicado.
+    """
+    client = get_storage_client()
+    bucket = client.bucket(BUCKET)
+
+    blob = bucket.blob(blob_name)
+
+    blob.upload_from_filename(str(local_path))
