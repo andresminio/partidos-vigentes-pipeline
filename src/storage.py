@@ -3,12 +3,12 @@ from io import BytesIO
 import pandas as pd
 from google.cloud import storage
 
-from config import BUCKET
+from config import BUCKET, PROJECT_ID
 
 
 def get_storage_client():
     """Devuelve un cliente autenticado de Cloud Storage."""
-    return storage.Client()
+    return storage.Client(project=PROJECT_ID)
 
 
 def list_files() -> list[str]:

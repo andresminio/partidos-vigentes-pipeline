@@ -48,9 +48,13 @@ def ensure_dataset() -> None:
 
 # CONSULTAS
 
-def get_loaded_files() -> set[str]:
+def get_loaded_dates() -> set:
     """
-    Devuelve el conjunto de archivos ya cargados (segun _source_file).
+    Devuelve el conjunto de snapshot_date ya cargados en la tabla.
+
+    La clave de un snapshot es su fecha, no el nombre del archivo: esto
+    hace que un mismo mes no se duplique aunque llegue con distinto nombre,
+    capitalizacion o separador.
 
     Si la tabla todavia no existe (primera corrida), devuelve un set vacio.
     """
@@ -63,19 +67,11 @@ def get_loaded_files() -> set[str]:
         return set()
 
     query = f"""
-        SELECT DISTINCT _source_file
+        SELECT DISTINCT snapshot_date
         FROM `{_table_id()}`
     """
 
-    return {row._source_file for row in client.query(query).result()}
-
-
-def already_loaded(filename: str) -> bool:
-    """
-    Indica si el snapshot ya fue cargado.
-    """
-
-    return filename in get_loaded_files()
+    return {row.snapshot_date for row in client.query(query).result()}
 
 
 # CARGA

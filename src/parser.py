@@ -10,7 +10,7 @@ from config import FILENAME_PATTERN
 
 # CONSTANTES
 
-DATE_PATTERN = re.compile(r"(\d{2})_(\d{2})_(\d{4})")
+DATE_PATTERN = re.compile(r"(\d{2})[_-](\d{2})[_-](\d{4})")
 # IGNORECASE: la fuente (CNE) publica con capitalizacion inconsistente
 # (ej. "PARTIDOS VIGENTES AL ..."), no queremos que un mes se caiga por eso.
 NAME_PATTERN = re.compile(FILENAME_PATTERN, re.IGNORECASE)
@@ -51,6 +51,20 @@ def extract_snapshot_date(filename: str):
         f"{year}-{month}-{day}",
         "%Y-%m-%d"
     ).date()
+
+
+def canonical_name(snapshot_date) -> str:
+    """
+    Nombre estandar con el que se guarda un snapshot en el bucket,
+    derivado de la fecha (la verdadera clave del snapshot).
+
+    Ejemplo:
+        date(2025, 10, 31) -> "partidos_vigentes_31_10_2025.xlsx"
+    """
+    return (
+        f"partidos_vigentes_"
+        f"{snapshot_date.day:02d}_{snapshot_date.month:02d}_{snapshot_date.year}.xlsx"
+    )
 
 
 # NORMALIZACION

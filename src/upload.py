@@ -2,7 +2,6 @@ import storage
 import parser
 from config import DATA_DIR
 
-
 def list_local_excel_files() -> list[str]:
     """
     Nombres de los .xlsx validos que hay en la carpeta local,
@@ -18,13 +17,30 @@ def list_local_excel_files() -> list[str]:
     )
 
 
+def snapshot_dates_in_bucket() -> set:
+    """
+    Fechas de snapshot ya presentes en el bucket, deducidas del nombre
+    de cada blob. Ignora los que no tengan una fecha reconocible.
+    """
+    fechas = set()
+
+    for nombre in storage.list_files():
+        try:
+            fechas.add(parser.extract_snapshot_date(nombre))
+        except ValueError:
+            continue
+
+    return fechas
+
+
 def main():
 
-    # Archivos validos que estan en la carpeta local.
+    # Archivos validos en la carpeta local.
     locales = list_local_excel_files()
 
-    # Lo que ya vive en el bucket, para subir solo lo nuevo.
-    en_bucket = set(storage.list_files())
+    # Fechas ya cargadas en el bucket (deduplicacion por snapshot_date,
+    # no por nombre: distinto formato o capitalizacion no genera duplicados).
+    en_bucket = snapshot_dates_in_bucket()
 
     total = len(locales)
 
@@ -34,12 +50,19 @@ def main():
 
     for i, nombre in enumerate(locales, start=1):
 
-        if nombre in en_bucket:
-            print(f"[{i}/{total}] [SKIP] Ya esta en el bucket: {nombre}")
+        fecha = parser.extract_snapshot_date(nombre)
+
+        if fecha in en_bucket:
+            print(f"[{i}/{total}] [SKIP] snapshot ya en el bucket: {nombre} ({fecha})")
             continue
 
-        print(f"[{i}/{total}] [UPLOAD] {nombre}")
-        storage.upload_file(DATA_DIR / nombre, nombre)
+        # Se sube con nombre estandar derivado de la fecha.
+        blob = parser.canonical_name(fecha)
+        print(f"[{i}/{total}] [UPLOAD] {nombre} -> {blob}")
+        storage.upload_file(DATA_DIR / nombre, blob)
+
+        # Evita re-subir si dos archivos locales comparten la misma fecha.
+        en_bucket.add(fecha)
 
 
 if __name__ == "__main__":

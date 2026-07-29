@@ -11,19 +11,25 @@ La capa raw preserva los datos tal cual fueron generados por la fuente, incorpor
 - SCD Tipo 2: historización completa de cambios en entidades
 - Trazabilidad: metadatos por fila para lineage
 - Determinismo: snapshot_date derivado del nombre del archivo 
-- Idempotencia: prevención de duplicados por diseño a partir de metadatos generados (_source_file)
+- Idempotencia: prevención de duplicados por diseño, deduplicando por `snapshot_date` (la clave real del snapshot, no el nombre del archivo)
+- Nombre estándar: al subir al bucket, cada archivo se renombra a una forma canónica (`partidos_vigentes_DD_MM_YYYY.xlsx`)
 
 ## Arquitectura
 ```
-Excel mensual
+Excel mensual (carpeta local)
+      │
+      ▼
+Python (upload)
+- validación de nombres (formato flexible)
+- deduplicación por snapshot_date
+- subida al bucket con nombre estándar
       │
       ▼
 Cloud Storage (bucket)
       │
       ▼
 Python (ingest) 
-- detección de archivos nuevos 
-- validación de nombres
+- detección de meses nuevos (por snapshot_date)
 - extracción de snapshot_date 
 - parsing de Excel 
 - enriquecimiento con metadatos 
@@ -57,15 +63,16 @@ Airflow (orquestación mensual)
 
 ## Estructura del repositorio
 
-Nombres descriptivos por responsabilidad. El orden de ejecución lo define `ingest.py` (el orquestador) y el diagrama de arquitectura de arriba:
+Nombres descriptivos por responsabilidad. El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `ingest.py` (bucket → BigQuery), como en el diagrama de arquitectura de arriba:
 
 | Módulo | Descripción |
 |--------|-----|
-| `config.py` | Define las constantes de configuración (project_id, bucket, dataset, región, patrón de archivos). |
-| `storage.py` | Define funciones para interactuar con Cloud Storage (listar y leer archivos). |
-| `parser.py` | Define funciones de validación, extracción de `snapshot_date`, normalización de columnas e incorporación de metadatos. |
-| `bigquery_loader.py` | Define funciones para crear el dataset y cargar a `raw.partidos_snapshot` (schema explícito, partición, clustering). |
-| `ingest.py` | Orquestador y **punto de entrada**: ejecuta las funciones de los módulos anteriores, coordinándolas en orden. |
+| `config.py` | Define las constantes de configuración (project_id, bucket, dataset, región, carpeta local, patrón de archivos). |
+| `storage.py` | Define funciones para interactuar con Cloud Storage (listar, leer y subir archivos). |
+| `parser.py` | Define funciones de validación, extracción de `snapshot_date`, nombre canónico, normalización de columnas e incorporación de metadatos. |
+| `bigquery_loader.py` | Define funciones para crear el dataset y cargar a `raw.partidos_snapshot` (schema explícito, partición, clustering), y para consultar los `snapshot_date` ya cargados. |
+| `upload.py` | **Punto de entrada 1**: sube los Excel nuevos de la carpeta local al bucket, con nombre estándar y deduplicando por fecha. |
+| `ingest.py` | **Punto de entrada 2**: lee los snapshots nuevos del bucket y los carga a `raw.partidos_snapshot`. |
 
 ## Esquema y metadatos
 
@@ -93,7 +100,27 @@ Metadatos incorporados
 
 ## Idempotencia
 
-El pipeline detecta qué archivos del bucket aún no fueron procesados (comparando contra _source_file en BigQuery), los ingesta en orden cronológico y omite los ya cargados. Ejecutar el pipeline múltiples veces no genera duplicados.
+El pipeline deduplica por `snapshot_date`, no por nombre de archivo. Detecta qué meses aún no están cargados (comparando contra los `snapshot_date` ya presentes en BigQuery), los ingesta en orden cronológico y omite los ya cargados. La subida al bucket aplica la misma lógica por fecha. Ejecutar el pipeline múltiples veces no genera duplicados, aunque un mismo mes llegue con distinto nombre, capitalización o separador.
+
+## Convención de nombre de archivo
+
+**Archivo de origen (carpeta local).** El nombre determina el `snapshot_date`, así que debe respetar el formato:
+
+```
+Partidos [Políticos] Vigentes [al] DD_MM_YYYY.xlsx
+```
+
+- **"Políticos" opcional:** valen tanto `Partidos Vigentes ...` como `Partidos Políticos Vigentes ...`.
+- **"al" opcional:** la CNE a veces lo omite (`Partidos Políticos Vigentes 30-11-2025.xlsx`).
+- **Separador de fecha flexible:** admite guion bajo o guion medio (`31_10_2025` o `31-10-2025`), porque la CNE publica con ambos.
+- **Capitalización y acentos libres:** `PARTIDOS VIGENTES AL ...` o `Partidos vigentes al ...` son igualmente válidos.
+- Los archivos que no cumplan el formato se ignoran (no se suben al bucket ni se cargan a BigQuery).
+
+**Nombre en el bucket (estándar).** Al subir, cada archivo se renombra a una forma canónica derivada de la fecha, para mantener el bucket consistente:
+
+```
+partidos_vigentes_DD_MM_YYYY.xlsx
+```
 
 
 ## Fuente
