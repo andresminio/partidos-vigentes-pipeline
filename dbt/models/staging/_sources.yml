@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: cne                              # nombre lógico del origen (Cámara Nacional Electoral)
+    description: >
+      Datos crudos publicados por la CNE e ingestados por el pipeline de Python.
+      dbt solo lee de acá; nunca modifica la capa raw.
+    database: partidos-vigentes-pipeline   # en BigQuery, "database" = el proyecto GCP
+    schema: raw                            # en BigQuery, "schema" = el dataset
+    tables:
+      - name: partidos_snapshot            # snapshot mensual del registro de partidos
+        description: >
+          Un snapshot por mes del listado de partidos vigentes. Columnas de datos
+          como STRING; metadatos snapshot_date (DATE, partición), _source_file,
+          _ingested_at, _row_number.

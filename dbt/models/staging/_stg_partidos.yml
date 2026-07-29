@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: stg_partidos
+    description: "Staging de partidos: tipado, normalización y clave de negocio."
+    columns:
+      - name: partido_key
+        description: "Clave única de la organización partidaria (por snapshot). Ej: D-02-154."
+        data_tests:
+          - not_null
+      - name: orden
+        description: "Tipo de orden partidario."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['DISTRITO', 'NACIONAL']
+      - name: nro_distrito
+        description: "Código de distrito, texto padeado a 2 (ej. '02')."
+        data_tests:
+          - not_null
+      - name: nro_partido
+        description: "Número de partido en el distrito, texto padeado a 3 (ej. '154')."
+        data_tests:
+          - not_null
