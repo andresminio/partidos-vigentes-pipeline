@@ -18,7 +18,8 @@ normalizado as (
         distrito,
         lpad(cast(cast(safe_cast(n_partido as numeric) as int64) as string), 3, '0') as nro_partido,
 
-        nombre as partido_politico,
+        -- Nombre normalizado: colapsa espacios múltiples, recorta extremos y pasa a mayúsculas.
+        upper(trim(regexp_replace(nombre, r'\s+', ' '))) as partido_politico,
         sigla,
 
         -- El crudo es un datetime (YYYY-MM-DD 00:00:00); se extrae la fecha.

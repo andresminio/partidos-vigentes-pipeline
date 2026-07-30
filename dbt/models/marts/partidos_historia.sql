@@ -17,7 +17,7 @@ with base as (
         sigla,
         fecha_reconocimiento,
         integra_partido_nacional
-    from {{ ref('stg_partidos') }}
+    from {{ ref('int_partidos') }}
 
 ),
 
