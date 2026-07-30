@@ -1,0 +1,19 @@
+version: 2
+
+seeds:
+  - name: distritos
+    description: "Tabla oficial de distritos electorales: número -> nombre canónico."
+    config:
+      column_types:
+        nro_distrito: string
+        distrito: string
+    columns:
+      - name: nro_distrito
+        description: "Código de distrito, texto padeado a 2 (ej. '06')."
+        data_tests:
+          - unique
+          - not_null
+      - name: distrito
+        description: "Nombre oficial del distrito."
+        data_tests:
+          - not_null
