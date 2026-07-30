@@ -1,6 +1,6 @@
 {{ config(materialized='table') }}
 
--- Foto actual del padrón: los partidos vigentes en el último snapshot cargado.
+-- Foto actual del Registro: los partidos vigentes en el último snapshot cargado.
 -- Se apoya en el SCD2 (partidos_historia), filtrando la versión vigente.
 
 select

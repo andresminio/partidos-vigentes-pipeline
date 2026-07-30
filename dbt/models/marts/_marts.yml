@@ -1,0 +1,92 @@
+version: 2
+
+models:
+  - name: partidos_vigentes
+    description: >
+      Foto actual del Registro: los partidos vigentes en el último snapshot cargado.
+      Se apoya en el SCD2 (partidos_historia) filtrando la versión vigente (is_current).
+    columns:
+      - name: id_partido
+        description: "Clave única de la organización partidaria. Ej: D-02-154 (tipo N/D + distrito + partido)."
+      - name: orden
+        description: "Tipo de orden partidario: DISTRITO o NACIONAL."
+      - name: nro_distrito
+        description: "Código de distrito, texto padeado a 2 (ej. '02')."
+      - name: distrito
+        description: "Nombre del distrito, estandarizado desde el número contra la tabla oficial."
+      - name: nro_partido
+        description: "Número del partido en el distrito, texto padeado a 3 (ej. '154')."
+      - name: partido_politico
+        description: >
+          Nombre del partido, normalizado. Los partidos de distrito que integran un
+          nacional del mismo número toman el nombre del nacional.
+      - name: sigla
+        description: "Siglas partidarias. Puede venir vacía."
+      - name: fecha_reconocimiento
+        description: "Fecha de reconocimiento legal del partido."
+      - name: integra_partido_nacional
+        description: "SI/NO: indica si el partido de distrito integra un partido de orden nacional."
+      - name: Actualizado
+        description: "Snapshot del que proviene la fila (el último cargado)."
+
+  - name: movimientos_mensuales
+    description: >
+      Altas y bajas del Registro por mes, derivadas del SCD2. La fuente no trae el
+      motivo de baja, por lo que no se distingue una caducidad de otras bajas: una
+      baja es la desaparición del listado de vigentes.
+    columns:
+      - name: snapshot_date
+        description: "Fecha de corte del mes."
+      - name: anio
+        description: "Año (número)."
+      - name: mes
+        description: "Mes como texto ('01'..'12')."
+      - name: altas
+        description: >
+          Partidos que aparecen ese mes (versión que empieza). Se excluye el primer
+          snapshot cargado, que es la línea de base y no representa altas reales.
+      - name: bajas
+        description: >
+          Partidos que dejan de estar vigentes. Se registran en el mes siguiente al
+          último en que aparecen (primer mes de ausencia).
+      - name: neto
+        description: "Diferencia altas − bajas del mes."
+
+  - name: evolucion_por_distrito
+    description: >
+      Cantidad de partidos por distrito y por mes. Un partido NACIONAL cuenta en su
+      distrito sede (donde está inscripto).
+    columns:
+      - name: snapshot_date
+        description: "Fecha de corte del mes."
+      - name: anio
+        description: "Año (número)."
+      - name: mes
+        description: "Mes como texto ('01'..'12')."
+      - name: nro_distrito
+        description: "Código de distrito, texto padeado a 2."
+      - name: distrito
+        description: "Nombre del distrito."
+      - name: nacionales
+        description: "Cantidad de partidos NACIONAL con sede en el distrito ese mes."
+      - name: distritales
+        description: "Cantidad de partidos de DISTRITO en el distrito ese mes."
+      - name: total
+        description: "Total de partidos en el distrito ese mes."
+
+  - name: resumen_mensual_partidos
+    description: >
+      Cantidad de partidos vigentes por tipo de orden, por mes. Una fila por snapshot.
+    columns:
+      - name: snapshot_date
+        description: "Fecha de corte del mes."
+      - name: anio
+        description: "Año (número)."
+      - name: mes
+        description: "Mes como texto ('01'..'12')."
+      - name: nacionales
+        description: "Cantidad de partidos NACIONAL vigentes ese mes."
+      - name: distritales
+        description: "Cantidad de partidos de DISTRITO vigentes ese mes."
+      - name: total
+        description: "Total de partidos vigentes ese mes."
