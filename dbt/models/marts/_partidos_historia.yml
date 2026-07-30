@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: partidos_historia
+    description: >
+      Historización SCD2 por vigencia: una fila por cada tramo continuo en que un
+      partido estuvo presente en los snapshots. Intervalo cerrado [valid_from, valid_to].
+    columns:
+      - name: partido_key
+        description: "Clave de la organización partidaria."
+        data_tests:
+          - not_null
+      - name: valid_from
+        description: "Primer snapshot en que aparece la versión."
+        data_tests:
+          - not_null
+      - name: valid_to
+        description: "Último snapshot en que aparece la versión."
+        data_tests:
+          - not_null
+      - name: is_current
+        description: "La versión llega hasta el último snapshot cargado (sigue vigente)."
+        data_tests:
+          - not_null
