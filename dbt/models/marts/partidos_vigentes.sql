@@ -4,7 +4,7 @@
 -- Se apoya en el SCD2 (partidos_historia), filtrando la versión vigente.
 
 select
-    partido_key,
+    partido_key as id_partido,
     orden,
     nro_distrito,
     distrito,
@@ -12,7 +12,7 @@ select
     partido_politico,
     sigla,
     fecha_reconocimiento,
-    integra_partido_nacional,
-    valid_from as vigente_desde   -- desde cuándo está vigente de forma continua
+    case when integra_partido_nacional then 'SI' else 'NO' end as integra_partido_nacional,
+    valid_to as Actualizado   -- snapshot del que proviene esta foto (el último cargado)
 from {{ ref('partidos_historia') }}
 where is_current
