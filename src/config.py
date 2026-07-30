@@ -2,7 +2,8 @@ from pathlib import Path
 
 PROJECT_ID = "partidos-vigentes-pipeline"
 BUCKET = "partidos-vigentes-raw"
-DATASET = "raw"
+DATASET = "raw"                 # dataset de la capa raw (ingesta)
+DATASET_DBT = "dbt_dev"         # dataset donde dbt materializa staging/marts
 TABLE = "partidos_snapshot"
 
 # Region del dataset de BigQuery

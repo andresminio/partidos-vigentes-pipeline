@@ -24,6 +24,9 @@ logs/
 # === Datos (viven en el bucket de Cloud Storage, no en git) ===
 data/
 
+# === Exportables generados (Excel de publicación) ===
+export/
+
 # === Documentacion de diseno (binarios docx; el README ya cubre el diseno) ===
 docs/
 
