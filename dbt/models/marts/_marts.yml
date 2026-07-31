@@ -90,3 +90,28 @@ models:
         description: "Cantidad de partidos de DISTRITO vigentes ese mes."
       - name: total
         description: "Total de partidos vigentes ese mes."
+
+  - name: partidos_snapshots
+    description: >
+      Detalle por partido y mes (todos los snapshots). Backbone interactivo del
+      tablero: conserva todas las dimensiones filtrables y toda la historia. La foto
+      actual es este mart filtrado por is_current = true.
+    columns:
+      - name: partido_key
+        description: "Clave de la organización partidaria. Ej: D-02-154."
+      - name: orden
+        description: "Tipo de orden: DISTRITO o NACIONAL."
+      - name: distrito
+        description: "Nombre del distrito (canónico)."
+      - name: partido_politico
+        description: "Nombre del partido (normalizado)."
+      - name: integra_partido_nacional
+        description: "Booleano: si el partido de distrito integra un nacional."
+      - name: snapshot_date
+        description: "Mes del snapshot al que pertenece la fila."
+      - name: anio
+        description: "Año (número)."
+      - name: mes
+        description: "Mes como texto ('01'..'12')."
+      - name: is_current
+        description: "True si la fila pertenece al último snapshot cargado (foto actual)."
