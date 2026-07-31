@@ -52,28 +52,6 @@ models:
       - name: neto
         description: "Diferencia altas − bajas del mes."
 
-  - name: evolucion_por_distrito
-    description: >
-      Cantidad de partidos por distrito y por mes. Un partido NACIONAL cuenta en su
-      distrito sede (donde está inscripto).
-    columns:
-      - name: snapshot_date
-        description: "Fecha de corte del mes."
-      - name: anio
-        description: "Año (número)."
-      - name: mes
-        description: "Mes como texto ('01'..'12')."
-      - name: nro_distrito
-        description: "Código de distrito, texto padeado a 2."
-      - name: distrito
-        description: "Nombre del distrito."
-      - name: nacionales
-        description: "Cantidad de partidos NACIONAL con sede en el distrito ese mes."
-      - name: distritales
-        description: "Cantidad de partidos de DISTRITO en el distrito ese mes."
-      - name: total
-        description: "Total de partidos en el distrito ese mes."
-
   - name: resumen_mensual_partidos
     description: >
       Cantidad de partidos vigentes por tipo de orden, por mes. Una fila por snapshot.

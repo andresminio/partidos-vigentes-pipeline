@@ -38,7 +38,7 @@ dbt
   ├─ staging           -> tipado, clave, normalización de nombres, distrito canónico (seed)
   ├─ intermediate      -> nombre del nacional para los distritales que lo integran
   ├─ SCD2 (historia)   -> historización por vigencia (valid_from / valid_to / is_current)
-  └─ marts             -> partidos_vigentes, movimientos_mensuales, evolucion_por_distrito, resumen_mensual_partidos
+  └─ marts             -> partidos_snapshots (detalle), partidos_vigentes, movimientos_mensuales, resumen_mensual_partidos
       │
       ▼
 Looker Studio (BI, conexión nativa a BigQuery)
@@ -82,9 +82,9 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 | `partidos_historia` | SCD2 | Historización por vigencia: una fila por tramo continuo, con `valid_from`, `valid_to`, `is_current`. |
 | `partidos_vigentes` | marts | Foto actual del Registro (`is_current`). |
 | `movimientos_mensuales` | marts | Altas y bajas por mes (más `neto`). |
-| `evolucion_por_distrito` | marts | Cantidad de partidos por distrito y mes. |
+| `partidos_snapshots` | marts | Detalle por partido y mes (todos los snapshots); backbone del tablero, con `is_current` y coordenadas por distrito. |
 | `resumen_mensual_partidos` | marts | Cantidad de partidos por tipo de orden y mes. |
-| `distritos` | seed | Tabla oficial número → nombre de los 24 distritos electorales. |
+| `distritos` | seed | Tabla oficial de los 24 distritos electorales: número → nombre canónico y coordenadas (centro de provincia). |
 
 ## Esquema y metadatos (raw)
 
