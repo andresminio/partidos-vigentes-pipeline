@@ -45,6 +45,11 @@ def main():
 
     df = pd.DataFrame(rows)
 
+    # fecha_reconocimiento a texto dd-mm-aaaa (como en la publicación).
+    df["fecha_reconocimiento"] = df["fecha_reconocimiento"].apply(
+        lambda d: d.strftime("%d-%m-%Y") if pd.notna(d) else ""
+    )
+
     # Fecha de corte (del snapshot) para el nombre del archivo.
     fecha = max(df["Actualizado"])
 
