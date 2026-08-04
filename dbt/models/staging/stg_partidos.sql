@@ -62,6 +62,33 @@ con_distrito as (
 
 ),
 
+-- Backfill de nro_partido cuando falta en un mes puntual (hueco de carga en el
+-- Excel de ese mes). Se completa con el número del MISMO partido (mismo distrito
+-- + nombre) tomado del snapshot no-nulo más cercano: primero el mes anterior más
+-- reciente y, si no hay, el mes siguiente más próximo. El número es identidad del
+-- partido, así que reconstruirlo desde su propia historia es determinístico y no
+-- inventa datos. Si un partido cambió de número, toma el vigente en esa época.
+rellenado as (
+
+    select
+        * except(nro_partido),
+        coalesce(
+            nro_partido,
+            last_value(nro_partido ignore nulls) over (
+                partition by nro_distrito, partido_politico
+                order by snapshot_date
+                rows between unbounded preceding and 1 preceding
+            ),
+            first_value(nro_partido ignore nulls) over (
+                partition by nro_distrito, partido_politico
+                order by snapshot_date
+                rows between 1 following and unbounded following
+            )
+        ) as nro_partido
+    from con_distrito
+
+),
+
 staging as (
 
     select
@@ -99,7 +126,7 @@ staging as (
         integra_partido_nacional,
         snapshot_date
 
-    from con_distrito
+    from rellenado
 
 )
 
