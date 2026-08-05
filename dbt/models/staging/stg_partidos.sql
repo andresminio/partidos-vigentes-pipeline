@@ -47,6 +47,57 @@ normalizado as (
 
 ),
 
+-- Correcciones puntuales de nro_distrito mal cargado en la fuente (el número
+-- no coincide con la identidad del partido). Solo se corrige lo listado en el
+-- seed; el resto pasa intacto. Se aplica ANTES de canonizar el distrito y de
+-- armar la clave, para que número y nombre queden consistentes y el warning
+-- de inconsistencia desaparezca.
+correcciones as (
+
+    select snapshot_date, orden, nro_distrito, nro_partido, nro_distrito_correcto
+    from {{ ref('correcciones_distrito') }}
+
+),
+
+corregido as (
+
+    select
+        n.* except(nro_distrito),
+        coalesce(c.nro_distrito_correcto, n.nro_distrito) as nro_distrito
+    from normalizado n
+    left join correcciones c
+        on  n.snapshot_date = c.snapshot_date
+        and n.orden         = c.orden
+        and n.nro_distrito  = c.nro_distrito
+        and n.nro_partido   = c.nro_partido
+
+),
+
+-- Correcciones puntuales de nombre mal cargado (anotación colada en el nombre,
+-- o nombre incorrecto del propio nacional). snapshot_date nulo -> aplica a todos
+-- los meses de la entidad; con fecha -> solo ese mes. Se aplica antes de la regla
+-- de nombre del nacional (int_partidos) para que el nombre corregido propague.
+correcciones_nombre as (
+
+    select snapshot_date, orden, nro_distrito, nro_partido, nombre_correcto
+    from {{ ref('correcciones_nombre') }}
+
+),
+
+corregido_nombre as (
+
+    select
+        n.* except(partido_politico),
+        coalesce(cn.nombre_correcto, n.partido_politico) as partido_politico
+    from corregido n
+    left join correcciones_nombre cn
+        on  n.orden        = cn.orden
+        and n.nro_distrito = cn.nro_distrito
+        and n.nro_partido  = cn.nro_partido
+        and (cn.snapshot_date is null or cn.snapshot_date = n.snapshot_date)
+
+),
+
 -- Compara el nombre de distrito que vino contra el oficial del seed.
 con_distrito as (
 
@@ -57,7 +108,7 @@ con_distrito as (
             edit_distance(n.distrito, d.distrito_oficial)
                 / greatest(length(n.distrito), length(d.distrito_oficial))
         end as dist_distrito
-    from normalizado n
+    from corregido_nombre n
     left join distritos d using (nro_distrito)
 
 ),

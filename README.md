@@ -13,6 +13,9 @@ La ingesta (Python) preserva una capa **raw** inmutable con los datos tal cual l
 - **Clave de negocio determinística:** `tipo_orden (N/D) + nro_distrito (pad 2) + nro_partido (pad 3)`, ej. `D-02-154`. El prefijo N/D es obligatorio porque un nacional y su distrital comparten número en el distrito sede.
 - **SCD Tipo 2 por vigencia:** una versión por cada tramo continuo en que un partido estuvo presente; los cortes son por baja/realta, con intervalos cerrados `[valid_from, valid_to]`.
 - **Reglas de negocio con guarda:** las correcciones automáticas (nombre del nacional, nombre de distrito) solo se aplican cuando el valor entrante se **parece** al canónico; una discrepancia grosera **no** se pisa, se marca con un test `warn` para revisión manual.
+- **Backfill de `nro_partido`:** cuando un mes puntual trae el número de partido vacío, se completa determinísticamente con el número del **mismo partido** (distrito + nombre) tomado del snapshot no-nulo más cercano en el tiempo. El número es identidad del partido, así que se reconstruye desde su propia historia sin inventar datos.
+- **Correcciones de distrito versionadas (seed):** los errores de carga de la fuente en `nro_distrito` (el número no coincide con la identidad del partido) se corrigen mediante el seed `correcciones_distrito`, no editando el raw. Cada corrección es una fila explícita (snapshot + orden + distrito + partido → distrito correcto), **auditable en git** y aplicada en staging antes de armar la clave. Solo se corrige lo listado; el resto pasa intacto.
+- **Correcciones de nombre versionadas (seed):** los errores en el nombre (anotaciones coladas dentro del campo, o el nombre incorrecto del propio nacional) se corrigen con el seed `correcciones_nombre`. `snapshot_date` es opcional: vacío corrige todos los meses de la entidad (error persistente), con fecha corrige solo ese mes (error puntual). Se aplica antes de la regla de nombre del nacional, así el nombre corregido propaga y limpia el `warn` de divergencia.
 - **Calidad testeada:** tests de dbt sobre unicidad de clave, integridad del SCD2 (sin solapamientos, rango válido, un solo vigente) y guardas de inconsistencia.
 
 ## Arquitectura
@@ -77,7 +80,7 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 
 | Recurso | Capa | Descripción |
 |---------|------|-----|
-| `stg_partidos` | staging | Tipa los datos crudos, construye `partido_key`, normaliza nombres (mayúsculas, trim, colapsa espacios) y estandariza el nombre de distrito desde el número contra el seed. |
+| `stg_partidos` | staging | Tipa los datos crudos, aplica las correcciones de distrito y de nombre (seeds `correcciones_distrito` y `correcciones_nombre`), rellena `nro_partido` faltante desde la historia del partido, construye `partido_key`, normaliza nombres (mayúsculas, trim, colapsa espacios) y estandariza el nombre de distrito desde el número contra el seed. |
 | `int_partidos` | intermediate | Reemplaza el nombre de los partidos de distrito que integran un nacional por el nombre del nacional (solo si son parecidos; con guarda de similitud). |
 | `partidos_historia` | SCD2 | Historización por vigencia: una fila por tramo continuo, con `valid_from`, `valid_to`, `is_current`. |
 | `partidos_vigentes` | marts | Foto actual del Registro (`is_current`). |
@@ -85,6 +88,8 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 | `partidos_snapshots` | marts | Detalle por partido y mes (todos los snapshots); backbone del tablero, con `is_current` y coordenadas por distrito. |
 | `resumen_mensual_partidos` | marts | Cantidad de partidos por tipo de orden y mes. |
 | `distritos` | seed | Tabla oficial de los 24 distritos electorales: número → nombre canónico y coordenadas (centro de provincia). |
+| `correcciones_distrito` | seed | Correcciones puntuales de `nro_distrito` mal cargado en la fuente. Una fila por corrección (snapshot + orden + distrito + partido → distrito correcto); auditable en git y aplicada en staging. |
+| `correcciones_nombre` | seed | Correcciones puntuales de nombre (anotación colada, o nombre incorrecto del nacional). `snapshot_date` opcional: vacío corrige todos los meses de la entidad, con fecha solo ese mes. |
 
 ## Esquema y metadatos (raw)
 
@@ -157,7 +162,10 @@ dbt build            # carga seeds, construye modelos y corre todos los tests
 dbt docs generate && dbt docs serve
 ```
 
-> **Correcciones:** para reprocesar un mes ya cargado (dato corregido), primero se borra su blob del bucket y su partición en BigQuery, y recién ahí se vuelve a correr `upload` / `ingest`. El pipeline solo agrega meses nuevos; no pisa los existentes.
+> **Correcciones:** hay dos caminos según el tipo de error.
+> - **Error de `nro_distrito`** (número que no coincide con la identidad del partido): se agrega una fila al seed `dbt/seeds/correcciones_distrito.csv` y se corre `dbt build`. No se toca el raw; la corrección queda versionada.
+> - **Error de nombre** (anotación colada, o nombre incorrecto del nacional): se agrega una fila al seed `dbt/seeds/correcciones_nombre.csv` y se corre `dbt build`. `snapshot_date` vacío corrige todos los meses; con fecha, solo ese.
+> - **Otros datos crudos** que haya que reprocesar de un mes ya cargado: se borra su blob del bucket y su partición en BigQuery, y recién ahí se vuelve a correr `upload` / `ingest`. El pipeline solo agrega meses nuevos; no pisa los existentes.
 
 ## Fuente
 

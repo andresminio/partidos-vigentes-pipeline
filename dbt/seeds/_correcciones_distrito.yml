@@ -1,0 +1,34 @@
+version: 2
+
+seeds:
+  - name: correcciones_distrito
+    description: >
+      Correcciones puntuales de nro_distrito mal cargado en la fuente
+      (el número no coincide con el nombre/identidad del partido). Cada fila
+      corrige una fila concreta del snapshot, identificada por
+      snapshot_date + orden + nro_distrito + nro_partido. Solo se corrige lo
+      listado acá; queda documentado y auditable en git.
+    config:
+      column_types:
+        snapshot_date: date
+        orden: string
+        nro_distrito: string
+        nro_partido: string
+        nro_distrito_correcto: string
+    columns:
+      - name: snapshot_date
+        description: "Fecha de corte del snapshot a corregir."
+        data_tests:
+          - not_null
+      - name: nro_distrito
+        description: "Número de distrito equivocado tal como vino en el raw."
+        data_tests:
+          - not_null
+      - name: nro_partido
+        description: "Número de partido (identifica la fila junto al distrito y el orden)."
+        data_tests:
+          - not_null
+      - name: nro_distrito_correcto
+        description: "Número de distrito correcto que debe usarse."
+        data_tests:
+          - not_null

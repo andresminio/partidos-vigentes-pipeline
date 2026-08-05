@@ -1,0 +1,37 @@
+version: 2
+
+seeds:
+  - name: correcciones_nombre
+    description: >
+      Correcciones puntuales de nombre mal cargado en la fuente: anotaciones que
+      se colaron dentro del campo nombre, o el nombre incorrecto del propio
+      partido nacional. Cada fila corrige una entidad, identificada por
+      orden + nro_distrito + nro_partido. Si snapshot_date viene vacío, la
+      corrección aplica a todos los meses de esa entidad; si viene con fecha,
+      solo a ese snapshot. Se aplica en staging, antes de la regla de nombre del
+      nacional, para que el nombre corregido propague y limpie el warn de
+      divergencia. Solo se corrige lo listado; el resto pasa intacto.
+    config:
+      column_types:
+        snapshot_date: date
+        orden: string
+        nro_distrito: string
+        nro_partido: string
+        nombre_correcto: string
+    columns:
+      - name: orden
+        description: "DISTRITO o NACIONAL: qué fila corregir."
+        data_tests:
+          - not_null
+      - name: nro_distrito
+        description: "Código de distrito de la entidad a corregir."
+        data_tests:
+          - not_null
+      - name: nro_partido
+        description: "Número de partido de la entidad a corregir."
+        data_tests:
+          - not_null
+      - name: nombre_correcto
+        description: "Nombre correcto que debe usarse (normalizado, en mayúsculas)."
+        data_tests:
+          - not_null
