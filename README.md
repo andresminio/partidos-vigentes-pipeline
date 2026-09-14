@@ -59,6 +59,10 @@ Airflow (orquestación mensual)   [pendiente]
 - **Orquestación:** Apache Airflow (ejecución mensual) — pendiente
 - **Autenticación local:** Application Default Credentials (ADC), sin claves de service account
 
+## Tablero
+
+Consumo en Looker Studio: https://datastudio.google.com/reporting/b4efb9aa-1c41-40e6-9f9d-59306971d4c3
+
 ## Estructura del repositorio
 
 Dos mitades: `src/` (ingesta en Python) y `dbt/` (transformación).

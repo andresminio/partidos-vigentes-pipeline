@@ -43,3 +43,9 @@ Thumbs.db
 
 # === Notas personales ===
 Comando para forzar disparador el powershell.txt
+
+# === Excels sueltos en la raiz (descargas puntuales de Claude, no van al repo) ===
+/*.xlsx
+
+# === Archivos que Claude deja sueltos en la carpeta del repo (no van a git) ===
+/Claude outputs/
