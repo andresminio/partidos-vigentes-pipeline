@@ -4,3 +4,5 @@ openpyxl
 google-cloud-bigquery
 pyarrow
 pandas-gbq
+dbt-bigquery
+bitwarden-sdk
