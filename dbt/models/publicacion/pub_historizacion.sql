@@ -37,6 +37,6 @@ select
     case when is_current then 'cierre actual'
          else format_date('%d-%m-%Y', valid_to) end as disponible_hasta,
 
-    case when is_current then 'SI' else 'NO' end     as ultimo_cierre
+    case when is_current then 'SI' else 'NO' end     as vigente_ultimo_cierre
 
 from h
