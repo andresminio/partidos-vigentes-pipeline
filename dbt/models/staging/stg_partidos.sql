@@ -30,8 +30,8 @@ normalizado as (
 
         lpad(cast(cast(safe_cast(n_partido as numeric) as int64) as string), 3, '0') as nro_partido,
 
-        -- Nombre de partido normalizado igual.
-        upper(trim(regexp_replace(nombre, r'\s+', ' '))) as partido_politico,
+        -- Nombre de partido normalizado igual, más quita de acentos (preserva ñ).
+        upper(trim(regexp_replace({{ sin_acentos('nombre') }}, r'\s+', ' '))) as partido_politico,
         sigla,
 
         -- El crudo es un datetime (YYYY-MM-DD 00:00:00); se extrae la fecha.

@@ -84,7 +84,7 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 
 | Recurso | Capa | Descripción |
 |---------|------|-----|
-| `stg_partidos` | staging | Tipa los datos crudos, aplica las correcciones de distrito y de nombre (seeds `correcciones_distrito` y `correcciones_nombre`), rellena `nro_partido` faltante desde la historia del partido, construye `partido_key`, normaliza nombres (mayúsculas, trim, colapsa espacios) y estandariza el nombre de distrito desde el número contra el seed. |
+| `stg_partidos` | staging | Tipa los datos crudos, aplica las correcciones de distrito y de nombre (seeds `correcciones_distrito` y `correcciones_nombre`), rellena `nro_partido` faltante desde la historia del partido, construye `partido_key`, normaliza nombres (mayúsculas, trim, colapsa espacios, quita acentos preservando la ñ) y estandariza el nombre de distrito desde el número contra el seed. |
 | `int_partidos` | intermediate | Reemplaza el nombre de los partidos de distrito que integran un nacional por el nombre del nacional (solo si son parecidos; con guarda de similitud). |
 | `partidos_historia` | SCD2 | Historización por vigencia: una fila por tramo continuo, con `valid_from`, `valid_to`, `is_current`. |
 | `partidos_vigentes` | marts | Foto actual del Registro (`is_current`). |
