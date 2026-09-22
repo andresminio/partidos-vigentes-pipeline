@@ -10,7 +10,3 @@ models:
     description: >
       Presentación del resumen mensual para la hoja "Resumen". snapshot_date como
       fecha_cierre (dd-mm-aaaa); el resto tal cual.
-  - name: pub_movimientos
-    description: >
-      Presentación de los movimientos mensuales para la hoja "Mov mensuales".
-      snapshot_date como fecha_cierre (dd-mm-aaaa); altas/bajas/neto.
