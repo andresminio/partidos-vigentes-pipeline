@@ -10,3 +10,7 @@ models:
     description: >
       Presentación del resumen mensual para la hoja "Resumen". snapshot_date como
       fecha_cierre (dd-mm-aaaa); el resto tal cual.
+  - name: pub_vigentes
+    description: >
+      Presentación de la foto actual (partidos vigentes) para la hoja
+      "Partidos vigentes". Fechas dd-mm-aaaa; orden por distrito, orden, número.
