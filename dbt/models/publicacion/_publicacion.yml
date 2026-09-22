@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: pub_historizacion
+    description: >
+      Presentación de la historización para la hoja "Historización" del Sheet.
+      Nombres finales, SI/NO, fechas dd-mm-aaaa, "cierre actual" en la vigencia
+      abierta y orden de filas (orden_fila). El Apps Script la vuelca tal cual.
+  - name: pub_resumen
+    description: >
+      Presentación del resumen mensual para la hoja "Resumen". snapshot_date como
+      fecha_cierre (dd-mm-aaaa); el resto tal cual.
+  - name: pub_movimientos
+    description: >
+      Presentación de los movimientos mensuales para la hoja "Mov mensuales".
+      snapshot_date como fecha_cierre (dd-mm-aaaa); altas/bajas/neto.
