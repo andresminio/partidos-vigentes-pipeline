@@ -7,15 +7,15 @@ select
         order by cast(nro_distrito as int64), orden, cast(nro_partido as int64)
     ) as orden_fila,
 
-    id_partido,
+    id_partido as idpartido,
     orden,
     nro_distrito,
     distrito,
     nro_partido,
     partido_politico,
     sigla,
-    integra_partido_nacional,
+    integra_partido_nacional as integra_nacional,
     format_date('%d-%m-%Y', fecha_reconocimiento) as fecha_reconocimiento,
-    format_date('%d-%m-%Y', Actualizado)          as actualizado
+    format_date('%d-%m-%Y', Actualizado)          as fecha_cierre
 
 from {{ ref('partidos_vigentes') }}
