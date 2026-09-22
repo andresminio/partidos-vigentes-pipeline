@@ -2,7 +2,7 @@
 
 Pipeline mensual que ingesta el listado oficial de partidos políticos vigentes publicado por la Cámara Nacional Electoral (CNE), lo historiza en BigQuery con SCD Tipo 2 y lo deja listo para consumo analítico.
 
-La ingesta (Python) preserva una capa **raw** inmutable con los datos tal cual llegan de la fuente, más metadatos de trazabilidad. La limpieza, las reglas de negocio, la historización y las tablas de consumo se implementan en **dbt** sobre BigQuery. El consumo final se hace desde **Looker Studio** (conexión nativa a BigQuery).
+La ingesta (Python) preserva una capa **raw** inmutable con los datos tal cual llegan de la fuente, más metadatos de trazabilidad. La limpieza, las reglas de negocio, la historización y las tablas de consumo se implementan en **dbt** sobre BigQuery. El consumo se hace desde **Looker Studio** (conexión nativa a BigQuery) y desde **Google Sheets**, alimentado por una capa de **presentación** (`publicacion`) que un Apps Script vuelca tal cual (todo el formato vive en dbt, no en el script).
 
 ## Decisiones de diseño
 
@@ -38,13 +38,15 @@ BigQuery  raw.partidos_snapshot   (particionada por snapshot_date [MONTH], clust
       ▼
 dbt
   ├─ source            -> declara raw.partidos_snapshot
-  ├─ staging           -> tipado, clave, normalización de nombres, distrito canónico (seed)
+  ├─ staging           -> tipado, clave, correcciones (seeds), normalización, distrito canónico
   ├─ intermediate      -> nombre del nacional para los distritales que lo integran
   ├─ SCD2 (historia)   -> historización por vigencia (valid_from / valid_to / is_current)
-  └─ marts             -> partidos_snapshots (detalle), partidos_vigentes, movimientos_mensuales, resumen_mensual_partidos
+  ├─ marts             -> partidos_snapshots (detalle), partidos_vigentes, movimientos_mensuales, resumen_mensual_partidos
+  └─ publicacion       -> vistas de presentación (pub_historizacion, pub_resumen, pub_vigentes)
       │
-      ▼
-Looker Studio (BI, conexión nativa a BigQuery)
+      ├─────────►  Looker Studio (BI, conexión nativa a BigQuery)
+      │
+      └─────────►  Google Sheets (Apps Script vuelca las vistas pub_*; refresh disparado por el pipeline)
       │
       ▼
 Airflow (orquestación mensual)   [pendiente]
@@ -56,6 +58,7 @@ Airflow (orquestación mensual)   [pendiente]
 - **Almacenamiento:** Google Cloud Storage + BigQuery
 - **Transformación:** dbt (dbt-bigquery) — staging, intermediate, SCD2, marts, seeds y tests
 - **Visualización:** Looker Studio (conexión nativa a BigQuery)
+- **Publicación:** Google Sheets, alimentado por las vistas `publicacion` vía Apps Script (refresh disparado por el pipeline)
 - **Orquestación:** Apache Airflow (ejecución mensual) — pendiente
 - **Autenticación local:** Application Default Credentials (ADC), sin claves de service account
 
@@ -94,6 +97,9 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 | `distritos` | seed | Tabla oficial de los 24 distritos electorales: número → nombre canónico y coordenadas (centro de provincia). |
 | `correcciones_distrito` | seed | Correcciones puntuales de `nro_distrito` mal cargado en la fuente. Una fila por corrección (snapshot + orden + distrito + partido → distrito correcto); auditable en git y aplicada en staging. |
 | `correcciones_nombre` | seed | Correcciones puntuales de nombre (anotación colada, o nombre incorrecto del nacional). `snapshot_date` opcional: vacío corrige todos los meses de la entidad, con fecha solo ese mes. |
+| `pub_historizacion` | publicacion | Presentación de la historización para Google Sheets: nombres finales, SI/NO, fechas dd-mm-aaaa, "cierre actual" en la vigencia abierta y orden de filas. |
+| `pub_resumen` | publicacion | Presentación del resumen mensual para Google Sheets (`snapshot_date` como `fecha_cierre`). |
+| `pub_vigentes` | publicacion | Presentación de la foto actual (partidos vigentes) para Google Sheets, con fechas dd-mm-aaaa y nombres coherentes con la historización. |
 
 ## Esquema y metadatos (raw)
 
