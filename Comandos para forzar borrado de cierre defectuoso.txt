@@ -1,3 +1,4 @@
 ejemplo:
 
-python reprocesar.py --fecha 31-08-2025
+cd src
+python reprocesar.py --fecha XX-XX-XXXX
