@@ -19,10 +19,19 @@ normalizado as (
     select
         orden,
 
+        -- La CNE publica el Excel con dos convenciones de encabezado según la
+        -- descarga; el parser solo pasa los headers a snake_case, así que el mismo
+        -- dato puede caer en columnas distintas. Se toleran ambas con coalesce:
+        --   nro distrito: n_orden  | n_distrito
+        --   nombre:       nombre   | partido_politico
+        --   fecha recon.: fecha_reconocimiento | fecha_de_reconocimiento
+        --   integra nac.: integra_on           | integra_un_partido_nacional
+        -- (orden, distrito, n_partido, sigla normalizan igual en las dos.)
+
         -- Códigos como texto padeado: son identificadores, no cantidades.
         -- El cast intermedio a int normaliza "2", "02" y "2.0" antes de padear,
         -- para que la clave sea estable entre archivos aunque Excel tipe distinto.
-        lpad(cast(cast(safe_cast(n_orden   as numeric) as int64) as string), 2, '0') as nro_distrito,
+        lpad(cast(cast(safe_cast(coalesce(n_orden, n_distrito) as numeric) as int64) as string), 2, '0') as nro_distrito,
 
         -- Nombre de distrito normalizado (mayúsculas, trim, colapsa espacios),
         -- para compararlo limpio contra el seed.
@@ -31,14 +40,14 @@ normalizado as (
         lpad(cast(cast(safe_cast(n_partido as numeric) as int64) as string), 3, '0') as nro_partido,
 
         -- Nombre de partido normalizado igual, más quita de acentos (preserva ñ).
-        upper(trim(regexp_replace({{ sin_acentos('nombre') }}, r'\s+', ' '))) as partido_politico,
+        upper(trim(regexp_replace({{ sin_acentos('coalesce(nombre, partido_politico)') }}, r'\s+', ' '))) as partido_politico,
         sigla,
 
         -- El crudo es un datetime (YYYY-MM-DD 00:00:00); se extrae la fecha.
-        date(safe_cast(fecha_reconocimiento as datetime)) as fecha_reconocimiento,
+        date(safe_cast(coalesce(fecha_reconocimiento, fecha_de_reconocimiento) as datetime)) as fecha_reconocimiento,
 
         -- 'SI'/'NO' -> booleano.
-        (integra_on = 'SI') as integra_partido_nacional,
+        (coalesce(integra_on, integra_un_partido_nacional) = 'SI') as integra_partido_nacional,
 
         -- Fecha de corte del snapshot (ya viene como DATE del raw).
         snapshot_date
