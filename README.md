@@ -175,7 +175,7 @@ dbt docs generate && dbt docs serve
 > **Correcciones:** hay dos caminos según el tipo de error.
 > - **Error de `nro_distrito`** (número que no coincide con la identidad del partido): se agrega una fila al seed `dbt/seeds/correcciones_distrito.csv` y se corre `dbt build`. No se toca el raw; la corrección queda versionada.
 > - **Error de nombre** (anotación colada, o nombre incorrecto del nacional): se agrega una fila al seed `dbt/seeds/correcciones_nombre.csv` y se corre `dbt build`. `snapshot_date` vacío corrige todos los meses; con fecha, solo ese.
-> - **Otros datos crudos** que haya que reprocesar de un mes ya cargado: se borra su blob del bucket y su partición en BigQuery, y recién ahí se vuelve a correr `upload` / `ingest`. El pipeline solo agrega meses nuevos; no pisa los existentes.
+> - **Corte defectuoso / archivo corregido** (reprocesar un mes ya cargado): se corre `python reprocesar.py --fecha DD-MM-YYYY`, que borra el blob del bucket y las filas de raw de ese `snapshot_date` (pide confirmación). Después se pone el Excel corregido en `data/` y se corre `run_cierre.ps1`: el pipeline detecta el mes faltante, lo recarga y reconstruye la historia. El pipeline solo agrega meses nuevos; no pisa los existentes, por eso primero hay que eliminar el corte.
 
 ## Fuente
 
