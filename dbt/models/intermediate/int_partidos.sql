@@ -72,7 +72,8 @@ final as (
         sigla,
         fecha_reconocimiento,
         integra_partido_nacional,
-        snapshot_date
+        snapshot_date,
+        _ingested_at
 
     from comparado
 

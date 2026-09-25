@@ -13,6 +13,7 @@ select
     sigla,
     fecha_reconocimiento,
     case when integra_partido_nacional then 'SI' else 'NO' end as integra_partido_nacional,
-    valid_to as Actualizado   -- snapshot del que proviene esta foto (el último cargado)
+    valid_to as Cierre,                            -- fecha del cierre (snapshot del que proviene esta foto)
+    {{ actualizado('_ingested_at') }} as Actualizado   -- cuándo se procesó este cierre (hora Argentina)
 from {{ ref('partidos_historia') }}
 where is_current

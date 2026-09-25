@@ -60,7 +60,10 @@ normalizado as (
         (coalesce(integra_on, integra_un_partido_nacional) = 'SI') as integra_partido_nacional,
 
         -- Fecha de corte del snapshot (ya viene como DATE del raw).
-        snapshot_date
+        snapshot_date,
+
+        -- Timestamp de ingesta (cuándo se procesó este cierre). Se arrastra tal cual.
+        _ingested_at
 
     from fuente
 
@@ -215,7 +218,8 @@ staging as (
         sigla,
         fecha_reconocimiento,
         integra_partido_nacional,
-        snapshot_date
+        snapshot_date,
+        _ingested_at
 
     from rellenado_fecha
 

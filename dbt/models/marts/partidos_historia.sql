@@ -16,7 +16,8 @@ with base as (
         partido_politico,
         sigla,
         fecha_reconocimiento,
-        integra_partido_nacional
+        integra_partido_nacional,
+        _ingested_at
     from {{ ref('int_partidos') }}
 
 ),
@@ -89,7 +90,8 @@ versiones as (
         partido_politico,
         sigla,
         fecha_reconocimiento,
-        integra_partido_nacional
+        integra_partido_nacional,
+        _ingested_at
     from versionado
     qualify row_number() over (
         partition by partido_key, version_id order by periodo desc
@@ -112,6 +114,7 @@ final as (
         v.sigla,
         v.fecha_reconocimiento,
         v.integra_partido_nacional,
+        v._ingested_at,
         v.valid_from,
         v.valid_to,
         (v.ultimo_periodo = (select max(periodo) from calendario)) as is_current

@@ -26,8 +26,12 @@ models:
         description: "Fecha de reconocimiento legal del partido."
       - name: integra_partido_nacional
         description: "SI/NO: indica si el partido de distrito integra un partido de orden nacional."
+      - name: Cierre
+        description: "Fecha del cierre: snapshot del que proviene la fila (el último cargado)."
       - name: Actualizado
-        description: "Snapshot del que proviene la fila (el último cargado)."
+        description: >
+          Fecha/hora en que se procesó este cierre (DD/MM/AAAA HH:MM, hora Argentina).
+          Sale del timestamp de ingesta; no cambia salvo reprocesamiento del mes.
 
   - name: movimientos_mensuales
     description: >
@@ -93,3 +97,5 @@ models:
         description: "Mes como texto ('01'..'12')."
       - name: is_current
         description: "True si la fila pertenece al último snapshot cargado (foto actual)."
+      - name: Actualizado
+        description: "Fecha/hora en que se procesó ese cierre (DD/MM/AAAA HH:MM, hora Argentina)."

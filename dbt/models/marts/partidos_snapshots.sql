@@ -41,7 +41,8 @@ select
     b.snapshot_date,
     extract(year from b.snapshot_date) as anio,
     format_date('%m', b.snapshot_date) as mes,
-    (b.snapshot_date = u.snapshot_actual) as is_current
+    (b.snapshot_date = u.snapshot_actual) as is_current,
+    {{ actualizado('b._ingested_at') }} as Actualizado
 
 from base b
 cross join ultimo u

@@ -33,7 +33,7 @@ def main():
 
     columnas = ", ".join(COLUMNAS)
     query = f"""
-        select {columnas}, Actualizado
+        select {columnas}, Cierre
         from `{PROJECT_ID}.{DATASET_DBT}.{TABLE}`
         order by nro_distrito, orden, nro_partido
     """
@@ -51,7 +51,7 @@ def main():
     )
 
     # Fecha de corte (del snapshot) para el nombre del archivo.
-    fecha = max(df["Actualizado"])
+    fecha = max(df["Cierre"])
 
     # Solo columnas de publicación, con los encabezados de presentación.
     df = df[list(COLUMNAS)].rename(columns=COLUMNAS)

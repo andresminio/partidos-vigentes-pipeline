@@ -16,6 +16,7 @@ select
     sigla,
     integra_partido_nacional as integra_nacional,
     format_date('%d-%m-%Y', fecha_reconocimiento) as fecha_reconocimiento,
-    format_date('%d-%m-%Y', Actualizado)          as fecha_cierre
+    format_date('%d-%m-%Y', Cierre)               as fecha_cierre,
+    Actualizado                                   as actualizado
 
 from {{ ref('partidos_vigentes') }}
