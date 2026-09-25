@@ -217,7 +217,7 @@ staging as (
         integra_partido_nacional,
         snapshot_date
 
-    from rellenado
+    from rellenado_fecha
 
 )
 
