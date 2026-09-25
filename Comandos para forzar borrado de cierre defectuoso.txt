@@ -1,5 +1,9 @@
 ejemplo:
 
 cd src
-python reprocesar.py --fecha XX-XX-XXXX
-.run_cierre.ps1
+python reprocesar.py --fecha XX-XX-XXXX     # borra el corte (bucket + raw)
+
+# poné el Excel CORREGIDO en la carpeta data\  antes de seguir
+
+cd ..                    
+.\run_cierre.ps1        
