@@ -2,3 +2,4 @@ ejemplo:
 
 cd src
 python reprocesar.py --fecha XX-XX-XXXX
+.run_cierre.ps1
