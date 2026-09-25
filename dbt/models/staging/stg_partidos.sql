@@ -43,14 +43,17 @@ normalizado as (
         upper(trim(regexp_replace({{ sin_acentos('coalesce(nombre, partido_politico)') }}, r'\s+', ' '))) as partido_politico,
         sigla,
 
-        -- La fecha llega en dos formatos según el archivo:
-        --   - datetime ISO "YYYY-MM-DD 00:00:00" (cuando Excel la trae como fecha real)
-        --   - texto "D/M/AAAA" (formato argentino, cuando viene como texto)
-        -- safe_cast solo entiende ISO, así que el texto con barras daba null.
-        -- Se prueban ambos: primero parse_date D/M/AAAA, si no castea el datetime ISO.
+        -- La fecha llega en tres formatos según el archivo:
+        --   - datetime ISO "YYYY-MM-DD 00:00:00" (Excel la trae como fecha real)
+        --   - texto "D/M/AAAA" (formato argentino con barras)
+        --   - texto "D-M-AAAA" (formato argentino con guiones)
+        -- safe_cast solo entiende ISO, por eso el texto daba null. Se prueban los
+        -- tres; el ISO va primero para que las fechas con guiones ISO no se
+        -- confundan con el formato D-M-AAAA.
         coalesce(
+            date(safe_cast(coalesce(fecha_reconocimiento, fecha_de_reconocimiento) as datetime)),
             safe.parse_date('%d/%m/%Y', trim(coalesce(fecha_reconocimiento, fecha_de_reconocimiento))),
-            date(safe_cast(coalesce(fecha_reconocimiento, fecha_de_reconocimiento) as datetime))
+            safe.parse_date('%d-%m-%Y', trim(coalesce(fecha_reconocimiento, fecha_de_reconocimiento)))
         ) as fecha_reconocimiento,
 
         -- 'SI'/'NO' -> booleano.
