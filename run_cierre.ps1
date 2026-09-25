@@ -28,10 +28,10 @@ function Linea($texto, $patron) {
 Set-Location (Join-Path $raiz "src")
 
 $o = Correr "Upload (carpeta -> bucket)" { & $py upload.py }
-Write-Host ("   subidos: {0} | ya en bucket: {1}" -f (Contar $o "\[UPLOAD\]"), (Contar $o "\[SKIP\]")) -ForegroundColor Green
+Write-Host ("   subidos: {0} | reemplazados: {1} | sin cambios: {2}" -f (Contar $o "\[UPLOAD\]"), (Contar $o "\[REEMPLAZO\]"), (Contar $o "\[SKIP\]")) -ForegroundColor Green
 
 $o = Correr "Ingest (bucket -> BigQuery)" { & $py ingest.py }
-Write-Host ("   cargados: {0} | ya cargados: {1}" -f (Contar $o "\[LOAD\]"), (Contar $o "\[SKIP\]")) -ForegroundColor Green
+Write-Host ("   cargados: {0} | reemplazados: {1} | sin cambios: {2}" -f (Contar $o "\[LOAD\]"), (Contar $o "\[REEMPLAZO\]"), (Contar $o "\[SKIP\]")) -ForegroundColor Green
 
 # 2) Transformacion + tests
 Set-Location (Join-Path $raiz "dbt")

@@ -138,6 +138,12 @@ Metadatos incorporados por la ingesta:
 
 El pipeline deduplica por `snapshot_date`, no por nombre de archivo. Detecta qué meses aún no están cargados (comparando contra los `snapshot_date` ya presentes en BigQuery), los ingesta en orden cronológico y omite los ya cargados. La subida al bucket aplica la misma lógica por fecha. Ejecutar el pipeline múltiples veces no genera duplicados, aunque un mismo mes llegue con distinto nombre, capitalización o separador.
 
+**Actualización dentro del mes (reemplazo).** Si llega una versión nueva de un mes ya cargado (ej. `... 31_08_2026 (2).xlsx` o `...-copia.xlsx`), el pipeline la **reemplaza** automáticamente, sin reprocesamiento manual:
+
+- `upload.py` agrupa los archivos locales por `snapshot_date` y sube el de **modificación más reciente** (mtime) al nombre canónico (un blob por fecha). Solo re-sube si el **contenido cambió** (compara `md5`), así no dispara reprocesos al pedo.
+- `ingest.py` compara el `updated` del blob contra el `_ingested_at` cargado: si el blob es **más nuevo**, borra las filas de ese mes y recarga la versión nueva; si no, saltea.
+- La columna `Actualizado` (ver marts) refleja el `_ingested_at`, así que queda registrado **cuándo** se procesó cada cierre y sus reemplazos.
+
 ## Convención de nombre de archivo
 
 **Archivo de origen (carpeta local).** El nombre determina el `snapshot_date`, así que debe respetar el formato:

@@ -53,3 +53,14 @@ def upload_file(local_path, blob_name: str) -> None:
     blob = bucket.blob(blob_name)
 
     blob.upload_from_filename(str(local_path))
+
+
+def get_blob_meta(blob_name: str):
+    """
+    Devuelve el blob con su metadata (`updated`, `md5_hash`), o None si no existe.
+    Se usa para decidir si re-subir (md5 distinto) o reprocesar (updated mas nuevo).
+    """
+    client = get_storage_client()
+    bucket = client.bucket(BUCKET)
+
+    return bucket.get_blob(blob_name)

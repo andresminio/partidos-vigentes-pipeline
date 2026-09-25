@@ -74,6 +74,45 @@ def get_loaded_dates() -> set:
     return {row.snapshot_date for row in client.query(query).result()}
 
 
+def get_loaded_snapshots() -> dict:
+    """
+    Devuelve {snapshot_date: max(_ingested_at)} de lo ya cargado.
+
+    Sirve para detectar si el blob del bucket es mas nuevo que lo cargado
+    (blob.updated > _ingested_at -> hay que reemplazar ese mes).
+
+    Set vacio si la tabla todavia no existe.
+    """
+    client = get_bigquery_client()
+
+    try:
+        client.get_table(_table_id())
+    except NotFound:
+        return {}
+
+    query = f"""
+        SELECT snapshot_date, MAX(_ingested_at) AS ingested_at
+        FROM `{_table_id()}`
+        GROUP BY snapshot_date
+    """
+
+    return {row.snapshot_date: row.ingested_at for row in client.query(query).result()}
+
+
+def delete_date(snapshot_date) -> None:
+    """
+    Borra del raw todas las filas de un snapshot_date. Se usa para reemplazar un
+    mes cuando llega una version mas nueva del archivo.
+    """
+    client = get_bigquery_client()
+
+    query = f"DELETE FROM `{_table_id()}` WHERE snapshot_date = @f"
+    cfg = bigquery.QueryJobConfig(
+        query_parameters=[bigquery.ScalarQueryParameter("f", "DATE", snapshot_date)]
+    )
+    client.query(query, job_config=cfg).result()
+
+
 # CARGA
 
 def _build_schema(df: pd.DataFrame) -> list[bigquery.SchemaField]:

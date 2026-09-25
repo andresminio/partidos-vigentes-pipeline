@@ -18,5 +18,8 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 # - "al" es opcional: la CNE a veces lo omite ("... Vigentes 30-11-2025").
 # - La fecha acepta guion bajo o guion medio (DD_MM_YYYY o DD-MM-YYYY), la CNE usa ambos.
 # - La capitalizacion y los acentos son libres (IGNORECASE en parser; el acento se cubre con [ií]).
+# - Se admite cualquier sufijo despues de la fecha (ej. " (2)", "-copia"): una
+#   actualizacion del mismo mes se acepta y reemplaza a la anterior (gana la de
+#   modificacion mas reciente).
 # Ej: "Partidos Vigentes al 31_01_2026.xlsx" o "Partidos Politicos Vigentes 30-11-2025.xlsx"
-FILENAME_PATTERN = r"^Partidos (Pol[ií]ticos )?Vigentes (al )?\d{2}[_-]\d{2}[_-]\d{4}\.xlsx$"
+FILENAME_PATTERN = r"^Partidos (Pol[ií]ticos )?Vigentes (al )?\d{2}[_-]\d{2}[_-]\d{4}.*\.xlsx$"
