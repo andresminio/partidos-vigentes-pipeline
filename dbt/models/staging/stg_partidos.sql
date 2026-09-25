@@ -159,6 +159,27 @@ rellenado as (
 
 ),
 
+-- Backfill de fecha_reconocimiento cuando falta en un mes puntual. Es un dato
+-- INMUTABLE (la fecha de reconocimiento legal no cambia), así que se completa con
+-- la ÚLTIMA fecha válida del mismo partido (la no-nula más reciente de su historia):
+-- si en algún cierre la corrigieron, se toma esa. Evita perder la fecha porque un
+-- mes vino con la celda vacía.
+rellenado_fecha as (
+
+    select
+        * except(fecha_reconocimiento),
+        coalesce(
+            fecha_reconocimiento,
+            last_value(fecha_reconocimiento ignore nulls) over (
+                partition by orden, nro_distrito, nro_partido
+                order by snapshot_date
+                rows between unbounded preceding and unbounded following
+            )
+        ) as fecha_reconocimiento
+    from rellenado
+
+),
+
 staging as (
 
     select
