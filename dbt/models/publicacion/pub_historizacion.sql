@@ -37,6 +37,9 @@ select
     case when is_current then 'cierre actual'
          else format_date('%d-%m-%Y', valid_to) end as disponible_hasta,
 
-    case when is_current then 'SI' else 'NO' end     as vigente_ultimo_cierre
+    case when is_current then 'SI' else 'NO' end     as vigente_ultimo_cierre,
+
+    -- Fecha/hora de procesamiento de ese cierre (DD/MM/AAAA HH:MM, hora Argentina).
+    {{ actualizado('_ingested_at') }}                as actualizado
 
 from h
