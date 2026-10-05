@@ -254,4 +254,238 @@ def exportar(client: bigquery.Client) -> None:
     for c in pendientes:
         fila = []
         for _, k in COLUMNAS_INFO:
-    
+            v = c[k]
+            fila.append(fecha(v) if isinstance(v, date) else v)
+        ws.append(fila + ["", "", ""])
+
+    # Formato: encabezado en negrita, columnas a completar resaltadas, filtros.
+    amarillo = PatternFill("solid", fgColor="FFF2CC")
+    for celda in ws[1]:
+        celda.font = Font(bold=True)
+    primera_editable = len(COLUMNAS_INFO) + 1
+    for col in range(primera_editable, len(encabezados) + 1):
+        ws.cell(row=1, column=col).fill = amarillo
+    ws.freeze_panes = "B2"
+    ws.auto_filter.ref = ws.dimensions
+    anchos = {"nombre_anterior": 45, "nombre_nuevo": 45, "nombre_correcto": 45,
+              "fundamento": 40, "distrito": 22}
+    for idx, h in enumerate(encabezados, 1):
+        ws.column_dimensions[ws.cell(row=1, column=idx).column_letter].width = anchos.get(h, 16)
+
+    # Desplegable para la decisión.
+    col_decision = ws.cell(row=1, column=primera_editable).column_letter
+    dv = DataValidation(type="list", formula1='"ACEPTADO,ERROR_CARGA"', allow_blank=True)
+    ws.add_data_validation(dv)
+    dv.add(f"{col_decision}2:{col_decision}{len(pendientes) + 1}")
+
+    REVISION_DIR.mkdir(exist_ok=True)
+    salida = REVISION_DIR / f"pendientes_{date.today():%Y-%m-%d}.xlsx"
+    wb.save(salida)
+    print(f"Escrito {salida} ({len(pendientes)} cambios pendientes).")
+    print("Completá decision (y nombre_correcto si es ERROR_CARGA), guardá y corré:")
+    print(f"  python validar.py --importar \"{salida}\"")
+
+
+def registrar_masivo(client: bigquery.Client, filas: list) -> None:
+    """Inserta todas las decisiones en una sola operación."""
+    structs = []
+    for f in filas:
+        c = f["cambio"]
+        structs.append(bigquery.StructQueryParameter(
+            None,
+            bigquery.ScalarQueryParameter("partido_key", "STRING", c["partido_key"]),
+            bigquery.ScalarQueryParameter("fecha_cambio_nombre", "DATE", c["fecha_cambio_nombre"]),
+            bigquery.ScalarQueryParameter("nombre_anterior", "STRING", c["nombre_anterior"]),
+            bigquery.ScalarQueryParameter("nombre_nuevo", "STRING", c["nombre_nuevo"]),
+            bigquery.ScalarQueryParameter("decision", "STRING", f["decision"]),
+            bigquery.ScalarQueryParameter("fundamento", "STRING", f["fundamento"]),
+            bigquery.ScalarQueryParameter("nombre_correcto", "STRING", f["nombre_correcto"]),
+            bigquery.ScalarQueryParameter("corregir_desde", "DATE", f["corregir_desde"]),
+            bigquery.ScalarQueryParameter("corregir_hasta", "DATE", f["corregir_hasta"]),
+        ))
+    query = f"""
+        insert into `{TABLA_DECISIONES}` (
+            partido_key, fecha_cambio_nombre, nombre_anterior, nombre_nuevo,
+            decision, fundamento, nombre_correcto, corregir_desde, corregir_hasta,
+            decidido_por, decidido_en
+        )
+        select
+            x.partido_key, x.fecha_cambio_nombre, x.nombre_anterior, x.nombre_nuevo,
+            x.decision, x.fundamento, x.nombre_correcto, x.corregir_desde, x.corregir_hasta,
+            session_user(), current_timestamp()
+        from unnest(@filas) as x
+    """
+    params = [bigquery.ArrayQueryParameter("filas", "STRUCT", structs)]
+    client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).result()
+
+
+def importar(client: bigquery.Client, archivo: str) -> None:
+    from openpyxl import load_workbook
+
+    ruta = Path(archivo)
+    if not ruta.exists():
+        print(f"No existe el archivo: {ruta}")
+        return
+
+    ws = load_workbook(ruta, data_only=True).active
+    filas_excel = list(ws.iter_rows(values_only=True))
+    encabezados = [str(h).strip() if h is not None else "" for h in filas_excel[0]]
+    faltan = [h for h in ["partido_key", "fecha_cambio_nombre", "nombre_anterior",
+                          "nombre_nuevo"] + COLUMNAS_A_COMPLETAR if h not in encabezados]
+    if faltan:
+        print(f"Al Excel le faltan columnas: {', '.join(faltan)}")
+        return
+    pos = {h: i for i, h in enumerate(encabezados)}
+
+    # Los pendientes actuales mandan: una fila del Excel solo se carga si su
+    # cambio sigue pendiente (si alguien lo decidió en el medio, se saltea).
+    pendientes = {
+        clave(c["partido_key"], c["fecha_cambio_nombre"], c["nombre_anterior"], c["nombre_nuevo"]): c
+        for c in leer_pendientes(client)
+    }
+
+    a_cargar, problemas = [], []
+    sin_decidir = ya_decididos = 0
+    vistos = set()
+    for n, fila in enumerate(filas_excel[1:], start=2):
+        val = lambda h: fila[pos[h]] if pos[h] < len(fila) else None
+        decision = str(val("decision") or "").strip().upper()
+        if not decision:
+            sin_decidir += 1
+            continue
+        if decision not in DECISIONES_VALIDAS:
+            problemas.append(f"fila {n}: decision inválida '{decision}'")
+            continue
+
+        k = clave(val("partido_key"), a_fecha(val("fecha_cambio_nombre")),
+                  val("nombre_anterior"), val("nombre_nuevo"))
+        if k in vistos:
+            problemas.append(f"fila {n}: cambio repetido en el Excel")
+            continue
+        vistos.add(k)
+        cambio = pendientes.get(k)
+        if cambio is None:
+            ya_decididos += 1
+            continue
+
+        fundamento = str(val("fundamento") or "").strip() or FUNDAMENTO_DEFAULT
+        if decision == "ERROR_CARGA":
+            nombre_correcto = normalizar_nombre(str(val("nombre_correcto") or ""))
+            if not nombre_correcto:
+                problemas.append(f"fila {n}: ERROR_CARGA sin nombre_correcto ({cambio['partido_key']})")
+                continue
+            a_cargar.append({
+                "cambio": cambio, "decision": decision, "fundamento": fundamento,
+                "nombre_correcto": nombre_correcto,
+                "corregir_desde": cambio["nombre_anterior_desde"],
+                "corregir_hasta": cambio["nombre_nuevo_hasta"],
+            })
+        else:
+            a_cargar.append({
+                "cambio": cambio, "decision": decision, "fundamento": fundamento,
+                "nombre_correcto": None, "corregir_desde": None, "corregir_hasta": None,
+            })
+
+    aceptados = sum(1 for f in a_cargar if f["decision"] == "ACEPTADO")
+    errores = len(a_cargar) - aceptados
+    print(f"Archivo: {ruta}")
+    print(f"  A cargar:       {aceptados} ACEPTADO, {errores} ERROR_CARGA")
+    print(f"  Sin decidir:    {sin_decidir} (siguen pendientes)")
+    print(f"  Ya no pendientes (decididos en el medio o editados en el Excel): {ya_decididos}")
+    print(f"  Con problemas:  {len(problemas)}")
+    for p in problemas:
+        print(f"    - {p}")
+
+    if not a_cargar:
+        print("Nada para cargar.")
+        return
+    if preguntar(f"Confirmás la carga de {len(a_cargar)} decisiones? (s/n): ", {"s", "n"}) == "n":
+        print("No se cargó nada.")
+        return
+
+    registrar_masivo(client, a_cargar)
+    print(f"OK: {len(a_cargar)} decisiones registradas.")
+    print("Para aplicarlas: cd ..\\dbt ; dbt build")
+
+
+# MAIN
+
+def consola(client: bigquery.Client) -> None:
+    try:
+        pendientes = leer_pendientes(client)
+    except NotFound:
+        print(f"No existe {TABLA_CAMBIOS}. Corré dbt build primero y volvé a ejecutar validar.py.")
+        return
+
+    total = len(pendientes)
+    print(f"Cambios de nombre pendientes de validación: {total}")
+    if not total:
+        return
+
+    aceptados = errores = 0
+    try:
+        for i, c in enumerate(pendientes, 1):
+            mostrar(i, total, c)
+            op = preguntar("  (a) aceptar  (e) error de carga  (s) saltear  (q) salir: ",
+                           {"a", "e", "s", "q"})
+            if op == "q":
+                break
+            if op == "s":
+                continue
+
+            if op == "a":
+                fundamento = preguntar_texto("  Fundamento: ")
+                if preguntar("  Confirmás ACEPTADO? (s/n): ", {"s", "n"}) == "n":
+                    print("  No registrado.")
+                    continue
+                registrar(client, c, "ACEPTADO", fundamento)
+                aceptados += 1
+                print("  OK: registrado como ACEPTADO.")
+
+            else:  # error de carga
+                nombre_correcto = normalizar_nombre(preguntar_texto("  Nombre correcto: "))
+                fundamento = preguntar_texto("  Fundamento: ")
+                desde, hasta = c["nombre_anterior_desde"], c["nombre_nuevo_hasta"]
+                print(f"  Se reemplazará el nombre por '{nombre_correcto}' "
+                      f"de {fecha(desde)} a {fecha(hasta)}.")
+                if preguntar("  Confirmás ERROR_CARGA? (s/n): ", {"s", "n"}) == "n":
+                    print("  No registrado.")
+                    continue
+                registrar(client, c, "ERROR_CARGA", fundamento,
+                          nombre_correcto=nombre_correcto,
+                          corregir_desde=desde, corregir_hasta=hasta)
+                errores += 1
+                print("  OK: registrado como ERROR_CARGA.")
+    except (KeyboardInterrupt, EOFError):
+        print("\nInterrumpido. Lo registrado hasta acá quedó guardado.")
+
+    print()
+    print(f"Registrados: {aceptados} aceptados, {errores} errores de carga.")
+    if aceptados or errores:
+        print("Para aplicarlos: cd ..\\dbt ; dbt build")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Validación humana de cambios de nombre.")
+    grupo = parser.add_mutually_exclusive_group()
+    grupo.add_argument("--exportar", action="store_true",
+                       help="genera un Excel con todos los pendientes en revision/")
+    grupo.add_argument("--importar", metavar="ARCHIVO",
+                       help="carga masiva de las decisiones completadas en el Excel")
+    args = parser.parse_args()
+
+    client = get_client()
+    asegurar_tabla(client)
+    try:
+        if args.exportar:
+            exportar(client)
+        elif args.importar:
+            importar(client, args.importar)
+        else:
+            consola(client)
+    except NotFound:
+        print(f"No existe {TABLA_CAMBIOS}. Corré dbt build primero y volvé a ejecutar validar.py.")
+
+
+if __name__ == "__main__":
+    main()
