@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: partidos_cambios_nombre
+    description: >
+      Cambios de nombre por partido. Una fila por cada vez que el nombre de un
+      partido_key (en int_partidos) difiere del de su aparición anterior.
+      Registra todos los cambios, incluidas idas y vueltas. Clave natural:
+      partido_key + fecha_deteccion.
+    columns:
+      - name: partido_key
+        description: "Clave de la organización partidaria. Ej: D-02-154."
+        data_tests:
+          - not_null
+      - name: orden
+        description: "Tipo de orden: DISTRITO o NACIONAL."
+      - name: nro_distrito
+        description: "Código de distrito, texto padeado a 2."
+      - name: distrito
+        description: "Nombre del distrito (canónico) en el cierre de detección."
+      - name: nro_partido
+        description: "Número del partido, texto padeado a 3."
+      - name: nombre_anterior
+        description: "Nombre en el último cierre previo al cambio."
+        data_tests:
+          - not_null
+      - name: nombre_nuevo
+        description: "Nombre en el primer cierre con el cambio."
+        data_tests:
+          - not_null
+      - name: distancia_edicion
+        description: >
+          Cantidad de operaciones de una letra (agregar, quitar o reemplazar) entre
+          ambos nombres, comparados sin espacios ni puntuación.
+        data_tests:
+          - not_null
+      - name: tipo_cambio
+        description: "ORTOGRAFICO si distancia_edicion <= 2; SUSTANTIVO si es mayor."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ORTOGRAFICO', 'SUSTANTIVO']
+      - name: origen_cambio
+        description: >
+          PROPIO si cambió el nombre propio del partido; HEREDADO_NACIONAL si el
+          nombre propio no cambió y el cambio viene de heredar el nombre del
+          partido nacional que integra.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['PROPIO', 'HEREDADO_NACIONAL']
+      - name: fecha_snapshot_anterior
+        description: "Último cierre con el nombre anterior."
+        data_tests:
+          - not_null
+      - name: fecha_deteccion
+        description: >
+          Primer cierre con el nombre nuevo. El cambio real ocurrió entre
+          fecha_snapshot_anterior y esta fecha.
+        data_tests:
+          - not_null
