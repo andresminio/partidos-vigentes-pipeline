@@ -4,7 +4,8 @@ models:
   - name: partidos_cambios_nombre
     description: >
       Cambios de nombre curados: solo los cambios detectados en int_cambios_nombre
-      que fueron aceptados en la validación humana (seed homologacion_cambios_nombre),
+      que fueron aceptados en la validación humana (src/validar.py, tabla
+      decisiones_cambios_nombre.registro en BigQuery),
       más los HEREDADO_NACIONAL que heredan la aceptación del cambio de su nacional.
       Se lee: "llevó nombre_anterior desde nombre_anterior_desde hasta
       nombre_anterior_hasta, y a partir de fecha_cambio_nombre pasó a llamarse
@@ -48,7 +49,7 @@ models:
               arguments:
                 values: ['ACEPTADO']
       - name: fecha_decision
-        description: "Fecha de la decisión."
+        description: "Fecha de la decisión (hora Argentina)."
         data_tests:
           - not_null
       - name: fundamento
@@ -56,7 +57,7 @@ models:
         data_tests:
           - not_null
       - name: revisado_por
-        description: "Quién validó el cambio."
+        description: "Quién validó el cambio (cuenta de Google que registró la decisión)."
       - name: decision_heredada_de
         description: >
           Para cambios HEREDADO_NACIONAL: partido_key del nacional cuya decisión se

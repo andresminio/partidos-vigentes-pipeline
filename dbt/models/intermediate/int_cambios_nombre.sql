@@ -1,9 +1,9 @@
 {{ config(materialized='table') }}
 
 -- DETECCIÓN de cambios de nombre (capa intermedia, sin curar). Cada cambio
--- detectado pasa a validación humana: si se acepta se registra en el seed
--- homologacion_cambios_nombre y aparece en el mart partidos_cambios_nombre; si es
--- un error de carga se corrige en el seed correcciones_nombre y deja de detectarse.
+-- detectado pasa a validación humana (src/validar.py): si se acepta aparece en el
+-- mart partidos_cambios_nombre; si es un error de carga, staging reemplaza el
+-- nombre por el correcto y el cambio deja de detectarse.
 --
 -- Una fila por cada vez que un partido pasa a
 -- llamarse distinto. Cada fila se lee: "llevó el nombre X desde A hasta B, y a
@@ -168,6 +168,7 @@ select
     nombre_anterior_hasta,
     nombre as nombre_nuevo,
     desde  as fecha_cambio_nombre,
+    hasta  as nombre_nuevo_hasta,
     distancia_edicion,
     case when distancia_edicion <= 2 then 'ORTOGRAFICO' else 'SUSTANTIVO' end as tipo_cambio,
     case when propio_inicio_tramo is distinct from propio_fin_tramo_anterior

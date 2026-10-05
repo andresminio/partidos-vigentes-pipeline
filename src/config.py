@@ -6,6 +6,11 @@ DATASET = "raw"                 # dataset de la capa raw (ingesta)
 DATASET_DBT = "dbt_dev"         # dataset donde dbt materializa staging/marts
 TABLE = "partidos_snapshot"
 
+# Decisiones de la validación humana de cambios de nombre (las escribe validar.py,
+# dbt solo las lee). Tabla de solo inserción: nunca se edita ni se borra.
+DATASET_DECISIONES = "decisiones_cambios_nombre"
+TABLE_DECISIONES = "registro"
+
 # Region del dataset de BigQuery
 LOCATION = "US"
 

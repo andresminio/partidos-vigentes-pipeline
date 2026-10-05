@@ -1,8 +1,7 @@
 -- Cola de validación: cambios de nombre detectados que todavía no tienen decisión
 -- (no están aceptados ni heredan una aceptación). severity='warn': se reportan en
--- cada cierre sin frenar el pipeline. Para resolver cada uno:
---   - si es real: fila ACEPTADO en seeds/homologacion_cambios_nombre.csv
---   - si es error de carga: fila en seeds/correcciones_nombre.csv
+-- cada cierre sin frenar el pipeline. Se resuelven con la consola de validación:
+--   cd src ; python validar.py   (aceptar o marcar como error de carga)
 {{ config(severity='warn') }}
 
 select

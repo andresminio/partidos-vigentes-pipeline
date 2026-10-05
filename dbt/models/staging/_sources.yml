@@ -13,3 +13,18 @@ sources:
           Un snapshot por mes del listado de partidos vigentes. Columnas de datos
           como STRING; metadatos snapshot_date (DATE, partición), _source_file,
           _ingested_at, _row_number.
+
+  - name: decisiones_cambios_nombre      # validación humana de cambios de nombre
+    description: >
+      Decisiones de la validación humana de cambios de nombre, escritas por
+      src/validar.py (consola). Tabla de solo inserción: nunca se edita ni se
+      borra; si se cambia de opinión se inserta una decisión nueva y prevalece
+      la más reciente. dbt solo lee de acá.
+    database: partidos-vigentes-pipeline
+    schema: decisiones_cambios_nombre
+    tables:
+      - name: registro
+        description: >
+          Una fila por decisión. decision: ACEPTADO (el cambio es real) o
+          ERROR_CARGA (el nombre se reemplaza por nombre_correcto en los cierres
+          corregir_desde..corregir_hasta del partido).

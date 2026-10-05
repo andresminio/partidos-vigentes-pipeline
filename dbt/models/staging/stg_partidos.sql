@@ -110,7 +110,9 @@ corregido_nombre as (
 
     select
         n.* except(partido_politico),
-        coalesce(cn.nombre_correcto, n.partido_politico) as partido_politico
+        -- Primero la limpieza general de anotaciones (macro limpiar_nombre, ej.
+        -- "*VER COLUMNA"); la corrección puntual del seed tiene la última palabra.
+        coalesce(cn.nombre_correcto, {{ limpiar_nombre('n.partido_politico') }}) as partido_politico
     from corregido n
     left join correcciones_nombre cn
         on  n.orden        = cn.orden
@@ -223,6 +225,35 @@ staging as (
 
     from rellenado_fecha
 
+),
+
+-- Correcciones de nombre decididas en la validación humana de cambios de nombre
+-- (decision = ERROR_CARGA en decisiones_cambios_nombre.registro): el nombre del
+-- partido se reemplaza por nombre_correcto en los cierres del rango
+-- [corregir_desde, corregir_hasta]. Se aplican al final de staging, así tienen la
+-- última palabra sobre las demás correcciones. Si dos decisiones se superponen
+-- en un mismo cierre, gana la más reciente.
+correcciones_decididas as (
+
+    select partido_key, corregir_desde, corregir_hasta, nombre_correcto, decidido_en
+    from {{ ref('stg_decisiones_cambios_nombre') }}
+    where decision = 'ERROR_CARGA'
+
+),
+
+final as (
+
+    select
+        s.* replace (coalesce(cd.nombre_correcto, s.partido_politico) as partido_politico)
+    from staging s
+    left join correcciones_decididas cd
+        on  cd.partido_key = s.partido_key
+        and s.snapshot_date between cd.corregir_desde and cd.corregir_hasta
+    qualify row_number() over (
+        partition by s.partido_key, s.snapshot_date
+        order by cd.decidido_en desc
+    ) = 1
+
 )
 
-select * from staging
+select * from final

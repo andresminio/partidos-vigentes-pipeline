@@ -1,5 +1,5 @@
 -- Grano de la tabla curada partidos_cambios_nombre: un solo cambio por partido y
--- cierre. Si falla, hay decisiones duplicadas en homologacion_cambios_nombre.
+-- cierre. Si falla, hay decisiones vigentes duplicadas.
 -- Devuelve las combinaciones repetidas; si devuelve cero filas, el test pasa.
 select
     partido_key,

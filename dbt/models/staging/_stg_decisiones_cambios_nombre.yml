@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: stg_decisiones_cambios_nombre
+    description: >
+      Decisión vigente (la más reciente) de la validación humana por cada cambio
+      de nombre revisado. Sale de decisiones_cambios_nombre.registro, que escribe
+      src/validar.py.
+    columns:
+      - name: partido_key
+        data_tests:
+          - not_null
+      - name: fecha_cambio_nombre
+        data_tests:
+          - not_null
+      - name: nombre_anterior
+        data_tests:
+          - not_null
+      - name: nombre_nuevo
+        data_tests:
+          - not_null
+      - name: decision
+        description: "ACEPTADO o ERROR_CARGA."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ACEPTADO', 'ERROR_CARGA']
+      - name: fundamento
+        data_tests:
+          - not_null
+      - name: nombre_correcto
+        description: "Solo en ERROR_CARGA: nombre que reemplaza al erróneo."
+      - name: corregir_desde
+        description: "Solo en ERROR_CARGA: primer cierre a corregir."
+      - name: corregir_hasta
+        description: "Solo en ERROR_CARGA: último cierre a corregir."
+      - name: decidido_por
+        description: "Cuenta de Google que registró la decisión."
+        data_tests:
+          - not_null
+      - name: decidido_en
+        description: "Momento de la decisión (UTC)."
+        data_tests:
+          - not_null

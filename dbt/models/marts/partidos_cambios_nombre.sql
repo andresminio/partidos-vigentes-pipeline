@@ -2,7 +2,7 @@
 
 -- Cambios de nombre CURADOS: solo los cambios detectados (int_cambios_nombre)
 -- que pasaron la validación humana.
---   - Directos: el cambio figura en el seed homologacion_cambios_nombre
+--   - Directos: el cambio fue ACEPTADO en la validación (decisiones_cambios_nombre)
 --     (coinciden partido_key, fecha_cambio_nombre y ambos nombres).
 --   - Heredados: un cambio HEREDADO_NACIONAL de un partido de distrito se acepta
 --     si está aceptado el cambio del nacional que integra (mismo nro_partido,
@@ -19,7 +19,16 @@ with cambios as (
 
 homologacion as (
 
-    select * from {{ ref('homologacion_cambios_nombre') }}
+    select
+        partido_key,
+        fecha_cambio_nombre,
+        nombre_anterior,
+        nombre_nuevo,
+        decision,
+        date(decidido_en, 'America/Argentina/Buenos_Aires') as fecha_decision,
+        fundamento,
+        decidido_por as revisado_por
+    from {{ ref('stg_decisiones_cambios_nombre') }}
     where decision = 'ACEPTADO'
 
 ),

@@ -4,7 +4,7 @@ models:
   - name: int_cambios_nombre
     description: >
       Detección de cambios de nombre por partido, sin curar: cada cambio pasa a
-      validación humana (seed homologacion_cambios_nombre o correcciones_nombre). Una fila por cada vez que un partido pasa a
+      validación humana (src/validar.py). Una fila por cada vez que un partido pasa a
       llamarse distinto (nombre de int_partidos). Se lee: "llevó nombre_anterior
       desde nombre_anterior_desde hasta nombre_anterior_hasta, y a partir de
       fecha_cambio_nombre pasó a llamarse nombre_nuevo". Registra todos los
@@ -43,6 +43,10 @@ models:
         description: >
           Primer cierre con el nombre nuevo. El cambio real ocurrió entre
           nombre_anterior_hasta y esta fecha; la fuente no informa la fecha exacta.
+        data_tests:
+          - not_null
+      - name: nombre_nuevo_hasta
+        description: "Último cierre del tramo con el nombre nuevo (antes del siguiente cambio)."
         data_tests:
           - not_null
       - name: distancia_edicion
