@@ -3,10 +3,12 @@ version: 2
 models:
   - name: partidos_cambios_nombre
     description: >
-      Cambios de nombre por partido. Una fila por cada vez que el nombre de un
-      partido_key (en int_partidos) difiere del de su aparición anterior.
-      Registra todos los cambios, incluidas idas y vueltas. Clave natural:
-      partido_key + fecha_deteccion.
+      Cambios de nombre por partido. Una fila por cada vez que un partido pasa a
+      llamarse distinto (nombre de int_partidos). Se lee: "llevó nombre_anterior
+      desde nombre_anterior_desde hasta nombre_anterior_hasta, y a partir de
+      fecha_cambio_nombre pasó a llamarse nombre_nuevo". Registra todos los
+      cambios, incluidas idas y vueltas. Una ausencia del partido no corta el
+      tramo de un nombre. Clave natural: partido_key + fecha_cambio_nombre.
     columns:
       - name: partido_key
         description: "Clave de la organización partidaria. Ej: D-02-154."
@@ -17,15 +19,29 @@ models:
       - name: nro_distrito
         description: "Código de distrito, texto padeado a 2."
       - name: distrito
-        description: "Nombre del distrito (canónico) en el cierre de detección."
+        description: "Nombre del distrito (canónico)."
       - name: nro_partido
         description: "Número del partido, texto padeado a 3."
       - name: nombre_anterior
-        description: "Nombre en el último cierre previo al cambio."
+        description: "Nombre que llevaba el partido antes del cambio."
+        data_tests:
+          - not_null
+      - name: nombre_anterior_desde
+        description: "Primer cierre en que el partido llevó el nombre anterior (en ese tramo)."
+        data_tests:
+          - not_null
+      - name: nombre_anterior_hasta
+        description: "Último cierre en que el partido llevó el nombre anterior."
         data_tests:
           - not_null
       - name: nombre_nuevo
-        description: "Nombre en el primer cierre con el cambio."
+        description: "Nombre que pasa a llevar el partido."
+        data_tests:
+          - not_null
+      - name: fecha_cambio_nombre
+        description: >
+          Primer cierre con el nombre nuevo. El cambio real ocurrió entre
+          nombre_anterior_hasta y esta fecha; la fuente no informa la fecha exacta.
         data_tests:
           - not_null
       - name: distancia_edicion
@@ -51,13 +67,3 @@ models:
           - accepted_values:
               arguments:
                 values: ['PROPIO', 'HEREDADO_NACIONAL']
-      - name: fecha_snapshot_anterior
-        description: "Último cierre con el nombre anterior."
-        data_tests:
-          - not_null
-      - name: fecha_deteccion
-        description: >
-          Primer cierre con el nombre nuevo. El cambio real ocurrió entre
-          fecha_snapshot_anterior y esta fecha.
-        data_tests:
-          - not_null
