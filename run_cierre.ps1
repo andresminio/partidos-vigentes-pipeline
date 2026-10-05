@@ -46,9 +46,6 @@ foreach ($w in ($o -split "`n" | Select-String "WARN \d")) {
 # 3) Publicacion
 Set-Location (Join-Path $raiz "src")
 
-$o = Correr "Export (Excel de publicacion)" { & $py export.py }
-Write-Host ("   " + (Linea $o "Escrito ")) -ForegroundColor Green
-
 $o = Correr "Refresh (Google Sheets BI)" { & $py refresh_sheet.py }
 foreach ($l in ($o -split "`n" | Select-String "OK:")) {
     Write-Host ("   " + $l.ToString().Trim()) -ForegroundColor Green
