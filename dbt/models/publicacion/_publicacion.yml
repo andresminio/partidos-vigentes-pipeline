@@ -14,3 +14,8 @@ models:
     description: >
       Presentación de la foto actual (partidos vigentes) para la hoja
       "Partidos vigentes". Fechas dd-mm-aaaa; orden por distrito, orden, número.
+  - name: pub_cambios_nombre
+    description: >
+      Presentación de los cambios de nombre para la primera hoja del Sheet
+      "Cambios de nombre". Fechas dd-mm-aaaa y orden de filas (orden_fila) por
+      distrito, número, orden y fecha de cambio. El Apps Script la vuelca tal cual.
