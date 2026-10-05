@@ -1,6 +1,11 @@
 {{ config(materialized='table') }}
 
--- Cambios de nombre por partido: una fila por cada vez que un partido pasa a
+-- DETECCIÓN de cambios de nombre (capa intermedia, sin curar). Cada cambio
+-- detectado pasa a validación humana: si se acepta se registra en el seed
+-- homologacion_cambios_nombre y aparece en el mart partidos_cambios_nombre; si es
+-- un error de carga se corrige en el seed correcciones_nombre y deja de detectarse.
+--
+-- Una fila por cada vez que un partido pasa a
 -- llamarse distinto. Cada fila se lee: "llevó el nombre X desde A hasta B, y a
 -- partir del cierre C pasó a llamarse Y". Registra TODOS los cambios (incluidas
 -- idas y vueltas A->B->A: cada tramo de A tiene su propio desde/hasta).

@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: partidos_cambios_nombre
+    description: >
+      Cambios de nombre curados: solo los cambios detectados en int_cambios_nombre
+      que fueron aceptados en la validación humana (seed homologacion_cambios_nombre),
+      más los HEREDADO_NACIONAL que heredan la aceptación del cambio de su nacional.
+      Se lee: "llevó nombre_anterior desde nombre_anterior_desde hasta
+      nombre_anterior_hasta, y a partir de fecha_cambio_nombre pasó a llamarse
+      nombre_nuevo". Clave natural: partido_key + fecha_cambio_nombre.
+    columns:
+      - name: partido_key
+        description: "Clave de la organización partidaria. Ej: D-02-154."
+        data_tests:
+          - not_null
+      - name: orden
+        description: "Tipo de orden: DISTRITO o NACIONAL."
+      - name: nro_distrito
+        description: "Código de distrito, texto padeado a 2."
+      - name: distrito
+        description: "Nombre del distrito (canónico)."
+      - name: nro_partido
+        description: "Número del partido, texto padeado a 3."
+      - name: nombre_anterior
+        description: "Nombre que llevaba el partido antes del cambio."
+      - name: nombre_anterior_desde
+        description: "Primer cierre en que el partido llevó el nombre anterior (en ese tramo)."
+      - name: nombre_anterior_hasta
+        description: "Último cierre en que el partido llevó el nombre anterior."
+      - name: nombre_nuevo
+        description: "Nombre que pasa a llevar el partido."
+      - name: fecha_cambio_nombre
+        description: "Primer cierre con el nombre nuevo."
+        data_tests:
+          - not_null
+      - name: distancia_edicion
+        description: "Letras agregadas, quitadas o reemplazadas entre ambos nombres (sin espacios ni puntuación)."
+      - name: tipo_cambio
+        description: "ORTOGRAFICO si distancia_edicion <= 2; SUSTANTIVO si es mayor."
+      - name: origen_cambio
+        description: "PROPIO o HEREDADO_NACIONAL."
+      - name: decision
+        description: "Decisión de la validación humana: ACEPTADO."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ACEPTADO']
+      - name: fecha_decision
+        description: "Fecha de la decisión."
+        data_tests:
+          - not_null
+      - name: fundamento
+        description: "Evidencia que respalda la decisión."
+        data_tests:
+          - not_null
+      - name: revisado_por
+        description: "Quién validó el cambio."
+      - name: decision_heredada_de
+        description: >
+          Para cambios HEREDADO_NACIONAL: partido_key del nacional cuya decisión se
+          hereda. Nulo si la decisión es directa.

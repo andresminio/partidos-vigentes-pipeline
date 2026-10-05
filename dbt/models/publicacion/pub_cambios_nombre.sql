@@ -1,4 +1,4 @@
--- Capa de PRESENTACIÓN de los cambios de nombre para la hoja "Cambios de nombre"
+-- Capa de PRESENTACIÓN de los cambios de nombre CURADOS (solo aceptados) para la hoja "Cambios de nombre"
 -- del Sheet. Todo el formato de publicación vive acá (no en el Apps Script):
 -- nombres finales, fechas dd-mm-aaaa y el orden de filas (orden_fila). El Apps
 -- Script solo vuelca esta vista tal cual, así que cambiar la presentación no
@@ -32,6 +32,9 @@ select
     format_date('%d-%m-%Y', fecha_cambio_nombre)   as fecha_cambio_nombre,
     distancia_edicion,
     tipo_cambio,
-    origen_cambio
+    origen_cambio,
+    decision,
+    format_date('%d-%m-%Y', fecha_decision)        as fecha_decision,
+    fundamento
 
 from c

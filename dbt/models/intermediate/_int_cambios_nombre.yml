@@ -1,9 +1,10 @@
 version: 2
 
 models:
-  - name: partidos_cambios_nombre
+  - name: int_cambios_nombre
     description: >
-      Cambios de nombre por partido. Una fila por cada vez que un partido pasa a
+      Detección de cambios de nombre por partido, sin curar: cada cambio pasa a
+      validación humana (seed homologacion_cambios_nombre o correcciones_nombre). Una fila por cada vez que un partido pasa a
       llamarse distinto (nombre de int_partidos). Se lee: "llevó nombre_anterior
       desde nombre_anterior_desde hasta nombre_anterior_hasta, y a partir de
       fecha_cambio_nombre pasó a llamarse nombre_nuevo". Registra todos los
