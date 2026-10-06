@@ -16,15 +16,23 @@
            "... Y CULTURAL -PROYECTO"    -> "... Y CULTURAL-PROYECTO"
     3. Quita las comillas dobles (rectas y tipográficas) en cualquier parte.
        Ej: '"MOVIMIENTO ... (M.I.L.E.S.T.T.T.)"' -> 'MOVIMIENTO ... (M.I.L.E.S.T.T.T.)'
+    4. Sin espacios del lado de adentro de los paréntesis.
+       Ej: "... TRABAJO ( M.I.L.E.S.T.T.T )" -> "... TRABAJO (M.I.L.E.S.T.T.T)"
 #}
 {% macro limpiar_nombre(col) %}
   trim(
     regexp_replace(
       regexp_replace(
-        regexp_replace({{ col }}, r'\s*\*\s*VER\b.*$', ''),
-        r'\s*-\s*', '-'
+        regexp_replace(
+          regexp_replace(
+            regexp_replace({{ col }}, r'\s*\*\s*VER\b.*$', ''),
+            r'\s*-\s*', '-'
+          ),
+          r'["\x{201C}\x{201D}\x{201E}\x{00AB}\x{00BB}]', ''
+        ),
+        r'\(\s+', '('
       ),
-      r'["\x{201C}\x{201D}\x{201E}\x{00AB}\x{00BB}]', ''
+      r'\s+\)', ')'
     )
   )
 {% endmacro %}
