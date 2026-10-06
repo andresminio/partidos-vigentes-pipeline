@@ -106,14 +106,32 @@ correcciones_nombre as (
 
 ),
 
+-- Equivalencias de nombre (errores de escritura conocidos, p.ej. "POR-" por
+-- "PRO-"): se aplican por nombre en todos los partidos y cierres, después de la
+-- limpieza general y antes de las correcciones puntuales del seed anterior.
+equivalencias as (
+
+    select nombre_variante, nombre_canonico
+    from {{ ref('equivalencias_nombre') }}
+
+),
+
 corregido_nombre as (
 
     select
         n.* except(partido_politico),
-        -- Primero la limpieza general de anotaciones (macro limpiar_nombre, ej.
-        -- "*VER COLUMNA"); la corrección puntual del seed tiene la última palabra.
-        coalesce(cn.nombre_correcto, {{ limpiar_nombre('n.partido_politico') }}) as partido_politico
+        -- De lo general a lo particular: limpieza de formato (macro limpiar_nombre,
+        -- ej. "*VER COLUMNA", espacios alrededor del guion) -> equivalencia por
+        -- nombre (seed equivalencias_nombre) -> corrección puntual del partido
+        -- (seed correcciones_nombre), que tiene la última palabra.
+        coalesce(
+            cn.nombre_correcto,
+            eq.nombre_canonico,
+            {{ limpiar_nombre('n.partido_politico') }}
+        ) as partido_politico
     from corregido n
+    left join equivalencias eq
+        on eq.nombre_variante = {{ limpiar_nombre('n.partido_politico') }}
     left join correcciones_nombre cn
         on  n.orden        = cn.orden
         and n.nro_distrito = cn.nro_distrito
