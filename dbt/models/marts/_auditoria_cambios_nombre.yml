@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: auditoria_cambios_nombre
+    description: >
+      Auditoría de TODOS los cambios de nombre, por cualquier motivo. Una fila por
+      partido y cierre en que cambió el nombre crudo (tal cual el Excel de la CNE)
+      o el nombre final (después del procesamiento) respecto de la aparición
+      anterior del partido. Separa lo que vino del raw de lo que hizo el
+      procesamiento. La tabla oficial de cambios homologados es
+      partidos_cambios_nombre; esta es su trazabilidad completa.
+    columns:
+      - name: partido_key
+        data_tests:
+          - not_null
+      - name: fecha_anterior
+        description: "Cierre anterior en que figuraba el partido."
+      - name: fecha_cambio
+        description: "Cierre en que se detecta el cambio."
+        data_tests:
+          - not_null
+      - name: crudo_anterior
+        description: "Nombre tal cual vino en el Excel, en el cierre anterior."
+      - name: crudo_nuevo
+        description: "Nombre tal cual vino en el Excel, en este cierre."
+      - name: final_anterior
+        description: "Nombre después de todo el procesamiento, en el cierre anterior."
+      - name: final_nuevo
+        description: "Nombre después de todo el procesamiento, en este cierre."
+      - name: cambio_en_crudo
+        description: "True si el nombre crudo cambió (lo trajo el raw)."
+      - name: cambio_en_final
+        description: "True si el nombre final cambió (sobrevive al procesamiento)."
+      - name: motivo_anterior
+        description: "Paso que modificó el nombre en el cierre anterior (nulo si ninguno)."
+      - name: motivo_nuevo
+        description: "Paso que modificó el nombre en este cierre (nulo si ninguno)."
+      - name: resolucion
+        description: >
+          Quién resolvió el cambio. Si el nombre final no cambió: el mecanismo que
+          lo absorbió (ERROR_CARGA, CORRECCION_PUNTUAL, EQUIVALENCIA,
+          HEREDADO_NACIONAL, LIMPIEZA_FORMATO, NORMALIZACION). Si cambió: ACEPTADO,
+          HEREDADO_ACEPTADO o PENDIENTE. SIN_MOTIVO no debería aparecer.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ERROR_CARGA', 'CORRECCION_PUNTUAL', 'EQUIVALENCIA',
+                         'HEREDADO_NACIONAL', 'LIMPIEZA_FORMATO', 'NORMALIZACION',
+                         'ACEPTADO', 'HEREDADO_ACEPTADO', 'PENDIENTE']

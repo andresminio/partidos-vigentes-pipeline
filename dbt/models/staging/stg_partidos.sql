@@ -39,6 +39,10 @@ normalizado as (
 
         lpad(cast(cast(safe_cast(n_partido as numeric) as int64) as string), 3, '0') as nro_partido,
 
+        -- Nombre tal cual vino en el Excel (sin tocar), para trazabilidad: permite
+        -- distinguir lo que trae el raw de lo que modifica el procesamiento.
+        coalesce(nombre, partido_politico) as nombre_crudo,
+
         -- Nombre de partido normalizado igual, más quita de acentos (preserva ñ).
         upper(trim(regexp_replace({{ sin_acentos('coalesce(nombre, partido_politico)') }}, r'\s+', ' '))) as partido_politico,
         sigla,
@@ -128,7 +132,15 @@ corregido_nombre as (
             cn.nombre_correcto,
             eq.nombre_canonico,
             {{ limpiar_nombre('n.partido_politico') }}
-        ) as partido_politico
+        ) as partido_politico,
+        -- Trazabilidad: qué paso de este bloque modificó el nombre (el más
+        -- específico que actuó). Nulo si ninguno lo tocó.
+        case
+            when cn.nombre_correcto is not null
+                 and cn.nombre_correcto != n.partido_politico then 'CORRECCION_PUNTUAL'
+            when eq.nombre_canonico is not null then 'EQUIVALENCIA'
+            when {{ limpiar_nombre('n.partido_politico') }} != n.partido_politico then 'LIMPIEZA_FORMATO'
+        end as motivo_nombre
     from corregido n
     left join equivalencias eq
         on eq.nombre_variante = {{ limpiar_nombre('n.partido_politico') }}
@@ -235,6 +247,8 @@ staging as (
 
         nro_partido,
         partido_politico,
+        nombre_crudo,
+        motivo_nombre,
         sigla,
         fecha_reconocimiento,
         integra_partido_nacional,
@@ -262,7 +276,17 @@ correcciones_decididas as (
 final as (
 
     select
-        s.* replace (coalesce(cd.nombre_correcto, s.partido_politico) as partido_politico)
+        s.* replace (
+            coalesce(cd.nombre_correcto, s.partido_politico) as partido_politico,
+            -- Trazabilidad final del nombre en staging: la decisión de validación
+            -- gana; si no hubo otro motivo pero el nombre difiere del crudo, lo
+            -- cambió la normalización (mayúsculas, acentos, espacios).
+            case
+                when cd.nombre_correcto is not null then 'ERROR_CARGA'
+                when s.motivo_nombre is not null then s.motivo_nombre
+                when s.nombre_crudo is distinct from s.partido_politico then 'NORMALIZACION'
+            end as motivo_nombre
+        )
     from staging s
     left join correcciones_decididas cd
         on  cd.partido_key = s.partido_key

@@ -60,6 +60,16 @@ final as (
             else partido_politico
         end as partido_politico,
 
+        -- Trazabilidad del nombre: el crudo (Excel), el propio (staging, antes de
+        -- la regla del nacional) y el motivo del último paso que lo modificó.
+        nombre_crudo,
+        partido_politico as nombre_propio,
+        case
+            when nombre_nacional is not null and dist_norm <= 0.40
+                 and nombre_nacional != partido_politico then 'HEREDADO_NACIONAL'
+            else motivo_nombre
+        end as motivo_nombre,
+
         -- Bandera: integra un nacional pero el nombre difiere demasiado -> revisar.
         (nombre_nacional is not null and dist_norm > 0.40) as revisar_nombre_nacional,
 
