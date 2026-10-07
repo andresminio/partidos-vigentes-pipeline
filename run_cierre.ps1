@@ -24,6 +24,33 @@ function Linea($texto, $patron) {
     if ($m) { $m.ToString().Trim() } else { "" }
 }
 
+# Cantidad de cambios de nombre sin validar, leída del warning del dbt build
+# (linea "WARN <n> warn_cambios_nombre_pendientes"). 0 si no hubo warning.
+function Pendientes($texto) {
+    $m = [regex]::Match($texto, "WARN (\d+) warn_cambios_nombre_pendientes")
+    if ($m.Success) { [int]$m.Groups[1].Value } else { 0 }
+}
+
+# Pregunta s/n con tiempo limite. Si nadie responde (o no hay consola
+# interactiva, p.ej. corrida programada), devuelve "n".
+function PreguntarConTiempo($texto, $segundos) {
+    Write-Host -NoNewline $texto
+    try {
+        while ([Console]::KeyAvailable) { [void][Console]::ReadKey($true) }  # descarta teclas previas
+        $fin = (Get-Date).AddSeconds($segundos)
+        while ((Get-Date) -lt $fin) {
+            if ([Console]::KeyAvailable) {
+                $tecla = [Console]::ReadKey($true).KeyChar.ToString().ToLower()
+                Write-Host $tecla
+                return $tecla
+            }
+            Start-Sleep -Milliseconds 200
+        }
+    } catch { }
+    Write-Host "(sin respuesta)"
+    return "n"
+}
+
 # 1) Ingesta
 Set-Location (Join-Path $raiz "src")
 
@@ -37,6 +64,7 @@ Write-Host ("   cargados: {0} | reemplazados: {1} | sin cambios: {2}" -f (Contar
 Set-Location (Join-Path $raiz "dbt")
 
 $o = Correr "dbt build (transformacion + tests)" { & $dbt build }
+$pendientes = Pendientes $o
 $resumen = Linea $o "Done\. PASS="
 if ($resumen) { Write-Host ("   " + $resumen) -ForegroundColor Green }
 foreach ($w in ($o -split "`n" | Select-String "WARN \d")) {
@@ -53,3 +81,36 @@ foreach ($l in ($o -split "`n" | Select-String "OK:")) {
 
 Set-Location $raiz
 Write-Host "`nCierre completo OK." -ForegroundColor Green
+
+# 4) Validacion de cambios de nombre (opcional, despues del cierre)
+# El cierre ya termino: si no se valida ahora, los cambios quedan pendientes
+# y se avisan de nuevo en el proximo build.
+if ($pendientes -gt 0) {
+    Write-Host "`nHay $pendientes cambios de nombre pendientes de validacion." -ForegroundColor Yellow
+    $r = PreguntarConTiempo "Validar ahora? (s/n) [60 s para responder, por defecto n]: " 60
+
+    if ($r -eq "s") {
+        Set-Location (Join-Path $raiz "src")
+        & $py validar.py          # interactivo: no se captura la salida
+
+        Set-Location (Join-Path $raiz "dbt")
+        $o = Correr "dbt build (aplica las decisiones)" { & $dbt build }
+        $resumen = Linea $o "Done\. PASS="
+        if ($resumen) { Write-Host ("   " + $resumen) -ForegroundColor Green }
+        $pendientes = Pendientes $o
+
+        Set-Location (Join-Path $raiz "src")
+        $o = Correr "Refresh (Google Sheets BI)" { & $py refresh_sheet.py }
+        foreach ($l in ($o -split "`n" | Select-String "OK:")) {
+            Write-Host ("   " + $l.ToString().Trim()) -ForegroundColor Green
+        }
+
+        Set-Location $raiz
+        Write-Host "`nValidacion aplicada." -ForegroundColor Green
+    }
+
+    if ($pendientes -gt 0) {
+        Write-Host "Quedan $pendientes cambios de nombre pendientes. Para validar despues:" -ForegroundColor Yellow
+        Write-Host "   cd src ; python validar.py ; cd ..\dbt ; dbt build ; cd ..\src ; python refresh_sheet.py"
+    }
+}
