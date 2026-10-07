@@ -219,10 +219,8 @@ La carpeta `revision/` (Excel de trabajo) no se commitea.
 
 ## Fuente
 
-Registro Nacional de Agrupaciones Políticas
-Cámara Nacional Electoral (CNE) — Argentina
-Publicación mensual en Excel
-~750 registros por snapshot
+Registro Nacional de Agrupaciones Políticas — Argentina
+Publicación mensual en Excel. ~750 registros por snapshot
 
 ## Autor
 
