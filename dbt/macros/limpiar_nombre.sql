@@ -1,6 +1,6 @@
 {#
   Limpieza general de nombres de partido: corrige patrones de formato que se
-  cuelan desde el Excel de la CNE. Se aplica en staging sobre el nombre ya
+  cuelan desde el Excel de origen. Se aplica en staging sobre el nombre ya
   normalizado (mayúsculas, sin acentos, espacios colapsados), antes del seed
   equivalencias_nombre (nombres exactos) y de las correcciones puntuales del seed
   correcciones_nombre, que conservan la última palabra.

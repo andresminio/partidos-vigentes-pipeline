@@ -24,7 +24,7 @@ from config import BUCKET, PROJECT_ID, DATASET, TABLE
 
 
 def parse_fecha(texto: str):
-    """Acepta DD-MM-YYYY o DD_MM_YYYY (los separadores que usa la CNE)."""
+    """Acepta DD-MM-YYYY o DD_MM_YYYY (los separadores que usa la fuente)."""
     for fmt in ("%d-%m-%Y", "%d_%m_%Y"):
         try:
             return datetime.strptime(texto, fmt).date()

@@ -1,9 +1,9 @@
 version: 2
 
 sources:
-  - name: cne                              # nombre lógico del origen (Cámara Nacional Electoral)
+  - name: registro                         # nombre lógico del origen (registro oficial de partidos)
     description: >
-      Datos crudos publicados por la CNE e ingestados por el pipeline de Python.
+      Datos crudos publicados por la fuente oficial e ingestados por el pipeline de Python.
       dbt solo lee de acá; nunca modifica la capa raw.
     database: partidos-vigentes-pipeline   # en BigQuery, "database" = el proyecto GCP
     schema: raw                            # en BigQuery, "schema" = el dataset

@@ -171,7 +171,7 @@ Partidos [Políticos] Vigentes [al] DD_MM_YYYY.xlsx
 ```
 
 - **"Políticos" opcional:** valen `Partidos Vigentes ...` y `Partidos Políticos Vigentes ...`.
-- **"al" opcional:** la CNE a veces lo omite (`Partidos Políticos Vigentes 30-11-2025.xlsx`).
+- **"al" opcional:** la fuente a veces lo omite (`Partidos Políticos Vigentes 30-11-2025.xlsx`).
 - **Separador de fecha flexible:** guion bajo o guion medio (`31_10_2025` o `31-10-2025`).
 - **Capitalización y acentos libres.**
 - Los archivos que no cumplan el formato se ignoran (no se suben ni se cargan).
@@ -220,7 +220,7 @@ La carpeta `revision/` (Excel de trabajo) no se commitea.
 ## Fuente
 
 Registro Nacional de Agrupaciones Políticas
-Cámara Nacional Electoral (CNE) — Argentina
+Argentina
 Publicación mensual en Excel
 ~750 registros por snapshot
 

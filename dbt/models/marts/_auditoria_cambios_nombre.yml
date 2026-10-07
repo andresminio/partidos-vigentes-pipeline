@@ -4,7 +4,7 @@ models:
   - name: auditoria_cambios_nombre
     description: >
       Auditoría de TODOS los cambios de nombre, por cualquier motivo. Una fila por
-      partido y cierre en que cambió el nombre crudo (tal cual el Excel de la CNE)
+      partido y cierre en que cambió el nombre crudo (tal cual el Excel de origen)
       o el nombre final (después del procesamiento) respecto de la aparición
       anterior del partido. Separa lo que vino del raw de lo que hizo el
       procesamiento. La tabla oficial de cambios homologados es

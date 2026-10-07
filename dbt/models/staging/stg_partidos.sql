@@ -2,7 +2,7 @@
 
 with fuente as (
 
-    select * from {{ source('cne', 'partidos_snapshot') }}
+    select * from {{ source('registro', 'partidos_snapshot') }}
 
 ),
 
@@ -19,7 +19,7 @@ normalizado as (
     select
         orden,
 
-        -- La CNE publica el Excel con dos convenciones de encabezado según la
+        -- La fuente publica el Excel con dos convenciones de encabezado según la
         -- descarga; el parser solo pasa los headers a snake_case, así que el mismo
         -- dato puede caer en columnas distintas. Se toleran ambas con coalesce:
         --   nro distrito: n_orden  | n_distrito
