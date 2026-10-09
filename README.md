@@ -56,7 +56,7 @@ BigQuery  decisiones_cambios_nombre.registro  <- Python (validar.py): validació
       └─────────►  Google Sheets (Apps Script vuelca las vistas pub_*; refresh disparado por el pipeline)
       │
       ▼
-Airflow (orquestación mensual)   [pendiente]
+Airflow (orquestación mensual)
 ```
 
 ## Stack
@@ -66,7 +66,7 @@ Airflow (orquestación mensual)   [pendiente]
 - **Transformación:** dbt (dbt-bigquery) — staging, intermediate, SCD2, marts, seeds y tests
 - **Visualización:** Looker Studio (conexión nativa a BigQuery)
 - **Publicación:** Google Sheets, alimentado por las vistas `publicacion` vía Apps Script (refresh disparado por el pipeline)
-- **Orquestación:** Apache Airflow (ejecución mensual) — pendiente
+- **Orquestación:** Apache Airflow (ejecución mensual)
 - **Autenticación local:** Application Default Credentials (ADC), sin claves de service account
 
 ## Tablero
@@ -219,10 +219,15 @@ La carpeta `revision/` (Excel de trabajo) no se commitea.
 
 ## Fuente
 
+<<<<<<< HEAD
 Registro Nacional de Agrupaciones Políticas
 Argentina
 Publicación mensual en Excel
 ~750 registros por snapshot
+=======
+Registro Nacional de Agrupaciones Políticas — Argentina
+Publicación mensual en Excel. ~750 registros por snapshot
+>>>>>>> 992712496790473b5fa78330e043f3a8c47eea32
 
 ## Autor
 
