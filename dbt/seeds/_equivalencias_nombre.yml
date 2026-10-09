@@ -5,7 +5,7 @@ seeds:
     description: >
       Equivalencias de nombre: cuando un partido figura con nombre_variante (un
       error de escritura conocido), se reemplaza por nombre_canonico. A diferencia
-      de correcciones_nombre, se aplica POR NOMBRE en todos los partidos y todos
+      de las decisiones de la validación humana, se aplica POR NOMBRE en todos los partidos y todos
       los cierres. Se aplica en staging después de la limpieza general (macro
       limpiar_nombre), así que nombre_variante se escribe ya limpio: mayúsculas,
       sin acentos, sin anotaciones *VER y sin espacios alrededor del guion.

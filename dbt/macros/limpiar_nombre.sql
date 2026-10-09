@@ -2,8 +2,8 @@
   Limpieza general de nombres de partido: corrige patrones de formato que se
   cuelan desde el Excel de origen. Se aplica en staging sobre el nombre ya
   normalizado (mayúsculas, sin acentos, espacios colapsados), antes del seed
-  equivalencias_nombre (nombres exactos) y de las correcciones puntuales del seed
-  correcciones_nombre, que conservan la última palabra.
+  equivalencias_nombre (nombres exactos) y de las decisiones de la validación
+  humana (ERROR_CARGA), que conservan la última palabra.
 
   Para sumar una regla nueva: agregar un regexp_replace a la cadena.
 
@@ -18,6 +18,10 @@
        Ej: '"MOVIMIENTO ... (M.I.L.E.S.T.T.T.)"' -> 'MOVIMIENTO ... (M.I.L.E.S.T.T.T.)'
     4. Sin espacios del lado de adentro de los paréntesis.
        Ej: "... TRABAJO ( M.I.L.E.S.T.T.T )" -> "... TRABAJO (M.I.L.E.S.T.T.T)"
+    5. Quita las anotaciones administrativas desde "ESPERAR" hasta el final
+       (con o sin guion antes).
+       Ej: "RED POR BUENOS AIRES -ESPERAR PLAZO REX-" -> "RED POR BUENOS AIRES"
+           "... P.A.I.S ESPERAR RESOLUCION REX"       -> "... P.A.I.S"
 #}
 {% macro limpiar_nombre(col) %}
   trim(
@@ -25,7 +29,10 @@
       regexp_replace(
         regexp_replace(
           regexp_replace(
-            regexp_replace({{ col }}, r'\s*\*\s*VER\b.*$', ''),
+            regexp_replace(
+              regexp_replace({{ col }}, r'\s*\*\s*VER\b.*$', ''),
+              r'\s*-?\s*\bESPERAR\b.*$', ''
+            ),
             r'\s*-\s*', '-'
           ),
           r'["\x{201C}\x{201D}\x{201E}\x{00AB}\x{00BB}]', ''

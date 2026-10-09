@@ -99,20 +99,10 @@ corregido as (
 
 ),
 
--- Correcciones puntuales de nombre mal cargado (anotación colada en el nombre,
--- o nombre incorrecto del propio nacional). snapshot_date nulo -> aplica a todos
--- los meses de la entidad; con fecha -> solo ese mes. Se aplica antes de la regla
--- de nombre del nacional (int_partidos) para que el nombre corregido propague.
-correcciones_nombre as (
-
-    select snapshot_date, orden, nro_distrito, nro_partido, nombre_correcto
-    from {{ ref('correcciones_nombre') }}
-
-),
-
 -- Equivalencias de nombre (errores de escritura conocidos, p.ej. "POR-" por
 -- "PRO-"): se aplican por nombre en todos los partidos y cierres, después de la
--- limpieza general y antes de las correcciones puntuales del seed anterior.
+-- limpieza general. Se aplica antes de la regla de nombre del nacional
+-- (int_partidos) para que el nombre corregido propague.
 equivalencias as (
 
     select nombre_variante, nombre_canonico
@@ -125,30 +115,22 @@ corregido_nombre as (
     select
         n.* except(partido_politico),
         -- De lo general a lo particular: limpieza de formato (macro limpiar_nombre,
-        -- ej. "*VER COLUMNA", espacios alrededor del guion) -> equivalencia por
-        -- nombre (seed equivalencias_nombre) -> corrección puntual del partido
-        -- (seed correcciones_nombre), que tiene la última palabra.
+        -- ej. "*VER COLUMNA", "ESPERAR ...", espacios alrededor del guion) ->
+        -- equivalencia por nombre (seed equivalencias_nombre). Las decisiones de
+        -- la validación humana (ERROR_CARGA) se aplican al final de staging.
         coalesce(
-            cn.nombre_correcto,
             eq.nombre_canonico,
             {{ limpiar_nombre('n.partido_politico') }}
         ) as partido_politico,
         -- Trazabilidad: qué paso de este bloque modificó el nombre (el más
         -- específico que actuó). Nulo si ninguno lo tocó.
         case
-            when cn.nombre_correcto is not null
-                 and cn.nombre_correcto != n.partido_politico then 'CORRECCION_PUNTUAL'
             when eq.nombre_canonico is not null then 'EQUIVALENCIA'
             when {{ limpiar_nombre('n.partido_politico') }} != n.partido_politico then 'LIMPIEZA_FORMATO'
         end as motivo_nombre
     from corregido n
     left join equivalencias eq
         on eq.nombre_variante = {{ limpiar_nombre('n.partido_politico') }}
-    left join correcciones_nombre cn
-        on  n.orden        = cn.orden
-        and n.nro_distrito = cn.nro_distrito
-        and n.nro_partido  = cn.nro_partido
-        and (cn.snapshot_date is null or cn.snapshot_date = n.snapshot_date)
 
 ),
 

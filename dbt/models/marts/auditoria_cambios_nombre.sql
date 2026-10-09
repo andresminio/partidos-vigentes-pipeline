@@ -9,7 +9,7 @@
 -- resolucion:
 --   Si el nombre final NO cambió (el procesamiento absorbió el cambio del crudo),
 --   el mecanismo más específico que actuó en alguno de los dos cierres:
---     ERROR_CARGA > CORRECCION_PUNTUAL > EQUIVALENCIA > HEREDADO_NACIONAL
+--     ERROR_CARGA > EQUIVALENCIA > HEREDADO_NACIONAL
 --     > LIMPIEZA_FORMATO > NORMALIZACION
 --   Si el nombre final SÍ cambió, el estado de la validación humana:
 --     ACEPTADO / HEREDADO_ACEPTADO (está en partidos_cambios_nombre) o PENDIENTE.
@@ -66,7 +66,6 @@ curados as (
 {% set prioridad %}
     case {m}
         when 'ERROR_CARGA'        then 1
-        when 'CORRECCION_PUNTUAL' then 2
         when 'EQUIVALENCIA'       then 3
         when 'HEREDADO_NACIONAL'  then 4
         when 'LIMPIEZA_FORMATO'   then 5

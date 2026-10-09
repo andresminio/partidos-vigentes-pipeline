@@ -9,7 +9,7 @@
 --     misma fecha de cambio y mismo nombre nuevo). Hereda su decisión y fundamento.
 -- Los cambios sin decisión quedan fuera y se listan en el test
 -- warn_cambios_nombre_pendientes. Los errores de carga no llegan acá: se
--- corrigen en correcciones_nombre y dejan de detectarse.
+-- corrigen en staging (ERROR_CARGA) y dejan de detectarse.
 
 with cambios as (
 

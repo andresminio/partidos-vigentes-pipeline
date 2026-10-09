@@ -38,13 +38,13 @@ models:
       - name: resolucion
         description: >
           Quién resolvió el cambio. Si el nombre final no cambió: el mecanismo que
-          lo absorbió (ERROR_CARGA, CORRECCION_PUNTUAL, EQUIVALENCIA,
+          lo absorbió (ERROR_CARGA, EQUIVALENCIA,
           HEREDADO_NACIONAL, LIMPIEZA_FORMATO, NORMALIZACION). Si cambió: ACEPTADO,
           HEREDADO_ACEPTADO o PENDIENTE. SIN_MOTIVO no debería aparecer.
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ['ERROR_CARGA', 'CORRECCION_PUNTUAL', 'EQUIVALENCIA',
+                values: ['ERROR_CARGA', 'EQUIVALENCIA',
                          'HEREDADO_NACIONAL', 'LIMPIEZA_FORMATO', 'NORMALIZACION',
                          'ACEPTADO', 'HEREDADO_ACEPTADO', 'PENDIENTE']
