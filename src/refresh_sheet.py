@@ -1,8 +1,8 @@
 import os
 import urllib.request
 
-# Las URLs y el token viven en refresh_config.py (gitignoreado) o en variables de
-# entorno; nunca en este archivo, para no filtrarlos al repo público.
+# Las URLs y el token viven en refresh_config.py (versionado en git) o, como
+# alternativa, en variables de entorno.
 try:
     from refresh_config import URLS, TOKEN
 except ImportError:
