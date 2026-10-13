@@ -22,9 +22,10 @@
 -- intervalo cerrado de cierres realmente observados.
 --
 -- Clasificación:
---   origen_cambio: PROPIO si cambió el nombre propio del partido (stg_partidos);
---                  HEREDADO_NACIONAL si el propio no cambió y el cambio viene de
---                  heredar el nombre del nacional (regla de int_partidos).
+--   origen_cambio: CAMBIO_NACIONAL si el distrito usaba el nombre del nacional que
+--                  integra antes y después del cambio (el cambio es el del
+--                  nacional; no se valida, sigue su decisión). PROPIO en cualquier
+--                  otro caso, incluido empezar o dejar de integrar (se valida).
 
 with nombres_finales as (
 
@@ -35,29 +36,15 @@ with nombres_finales as (
         nro_distrito,
         distrito,
         nro_partido,
-        partido_politico as nombre
+        partido_politico as nombre,
+        usa_nombre_nacional
     from {{ ref('int_partidos') }}
-
-),
-
--- Nombre propio del partido, antes de la regla del nacional.
-nombres_propios as (
-
-    select
-        partido_key,
-        snapshot_date,
-        partido_politico as nombre_propio
-    from {{ ref('stg_partidos') }}
 
 ),
 
 base as (
 
-    select
-        f.*,
-        p.nombre_propio
-    from nombres_finales f
-    left join nombres_propios p using (partido_key, snapshot_date)
+    select * from nombres_finales
 
 ),
 
@@ -78,8 +65,9 @@ marcado as (
 ),
 
 -- Suma acumulada de las marcas: id de tramo por partido (gaps and islands).
--- Se toma el nombre propio del primer y del último cierre de cada tramo,
--- para clasificar el origen del cambio en el borde entre tramos.
+-- Se toma si el distrito usaba el nombre del nacional en el primer y en el
+-- último cierre de cada tramo, para clasificar el origen del cambio en el borde
+-- entre tramos.
 islas as (
 
     select
@@ -95,8 +83,8 @@ con_bordes as (
 
     select
         *,
-        first_value(nombre_propio) over t as propio_inicio_tramo,
-        last_value(nombre_propio)  over t as propio_fin_tramo
+        first_value(usa_nombre_nacional) over t as nacional_inicio_tramo,
+        last_value(usa_nombre_nacional)  over t as nacional_fin_tramo
     from islas
     window t as (
         partition by partido_key, tramo_id
@@ -119,8 +107,8 @@ tramos as (
         any_value(nombre)              as nombre,
         min(snapshot_date)             as desde,
         max(snapshot_date)             as hasta,
-        any_value(propio_inicio_tramo) as propio_inicio_tramo,
-        any_value(propio_fin_tramo)    as propio_fin_tramo
+        any_value(nacional_inicio_tramo) as nacional_inicio_tramo,
+        any_value(nacional_fin_tramo)    as nacional_fin_tramo
     from con_bordes
     group by partido_key, tramo_id
 
@@ -134,7 +122,7 @@ con_tramo_anterior as (
         lag(nombre)           over w as nombre_anterior,
         lag(desde)            over w as nombre_anterior_desde,
         lag(hasta)            over w as nombre_anterior_hasta,
-        lag(propio_fin_tramo) over w as propio_fin_tramo_anterior
+        lag(nacional_fin_tramo) over w as nacional_fin_tramo_anterior
     from tramos
     window w as (partition by partido_key order by tramo_id)
 
@@ -160,6 +148,6 @@ select
     nombre as nombre_nuevo,
     desde  as fecha_cambio_nombre,
     hasta  as nombre_nuevo_hasta,
-    case when propio_inicio_tramo is distinct from propio_fin_tramo_anterior
-         then 'PROPIO' else 'HEREDADO_NACIONAL' end as origen_cambio
+    case when nacional_inicio_tramo and nacional_fin_tramo_anterior
+         then 'CAMBIO_NACIONAL' else 'PROPIO' end as origen_cambio
 from cambios

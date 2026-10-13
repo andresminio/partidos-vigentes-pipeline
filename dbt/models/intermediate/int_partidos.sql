@@ -66,9 +66,15 @@ final as (
         partido_politico as nombre_propio,
         case
             when nombre_nacional is not null and dist_norm <= 0.40
-                 and nombre_nacional != partido_politico then 'HEREDADO_NACIONAL'
+                 and nombre_nacional != partido_politico then 'ESTANDARIZACION_NACIONAL'
             else motivo_nombre
         end as motivo_nombre,
+
+        -- El nombre final de esta fila es el del nacional que integra (se aplicó la
+        -- regla de estandarización). Se usa para clasificar los cambios de nombre:
+        -- si el distrito usa el nombre del nacional antes y después, el cambio es
+        -- del nacional (CAMBIO_NACIONAL) y no se valida.
+        (nombre_nacional is not null and dist_norm <= 0.40) as usa_nombre_nacional,
 
         -- Bandera: integra un nacional pero el nombre difiere demasiado -> revisar.
         (nombre_nacional is not null and dist_norm > 0.40) as revisar_nombre_nacional,

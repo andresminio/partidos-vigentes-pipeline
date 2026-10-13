@@ -98,14 +98,14 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 |---------|------|-----|
 | `stg_partidos` | staging | Tipa los datos crudos, aplica las correcciones de distrito, rellena `nro_partido` faltante desde la historia del partido, construye `partido_key` y estandariza el nombre de distrito. Aplica la cascada de limpieza de nombres (normalización → `limpiar_nombre` → `equivalencias_nombre` → decisiones `ERROR_CARGA`) y conserva `nombre_crudo` y `motivo_nombre` para trazabilidad. |
 | `stg_decisiones_cambios_nombre` | staging | Decisión vigente (la más reciente) por cada cambio de nombre revisado, desde la fuente `decisiones_cambios_nombre.registro`. |
-| `int_partidos` | intermediate | Reemplaza el nombre de los partidos de distrito que integran un nacional por el nombre del nacional (solo si son parecidos; con guarda de similitud). Marca esos casos como `HEREDADO_NACIONAL`. |
-| `int_cambios_nombre` | intermediate | Detección de cambios de nombre, sin curar: una fila por cada vez que un partido pasa a llamarse distinto, con el tramo del nombre anterior (desde/hasta), la fecha del cambio y `origen_cambio` (PROPIO o HEREDADO_NACIONAL). |
+| `int_partidos` | intermediate | Reemplaza el nombre de los partidos de distrito que integran un nacional por el nombre del nacional (solo si son parecidos; con guarda de similitud). Marca esos casos como `ESTANDARIZACION_NACIONAL`. |
+| `int_cambios_nombre` | intermediate | Detección de cambios de nombre, sin curar: una fila por cada vez que un partido pasa a llamarse distinto, con el tramo del nombre anterior (desde/hasta), la fecha del cambio y `origen_cambio`: `CAMBIO_NACIONAL` si el distrito usaba el nombre del nacional antes y después del cambio (no se valida), `PROPIO` en cualquier otro caso (se valida). |
 | `partidos_historia` | SCD2 | Historización por vigencia: una fila por tramo continuo, con `valid_from`, `valid_to`, `is_current`. |
 | `partidos_vigentes` | marts | Foto actual del Registro (`is_current`). |
 | `movimientos_mensuales` | marts | Altas y bajas por mes (más `neto`). |
 | `partidos_snapshots` | marts | Detalle por partido y mes (todos los snapshots); backbone del tablero, con `is_current` y coordenadas por distrito. |
 | `resumen_mensual_partidos` | marts | Cantidad de partidos por tipo de orden y mes. |
-| `partidos_cambios_nombre` | marts | Cambios de nombre **homologados**: los aceptados en la validación humana, más los heredados de un nacional aceptado. Tabla oficial. |
+| `partidos_cambios_nombre` | marts | Cambios de nombre **homologados**: los aceptados en la validación humana, más los `CAMBIO_NACIONAL` de un nacional aceptado. Tabla oficial. |
 | `auditoria_cambios_nombre` | marts | **Todos** los cambios de nombre, por partido y cierre (sobre cada cierre, no sobre el SCD2): `nombre_crudo`, `nombre_final` y `motivo`. |
 | `distritos` | seed | Tabla oficial de los 24 distritos electorales: número → nombre canónico y coordenadas (centro de provincia). |
 | `correcciones_distrito` | seed | Correcciones puntuales de `nro_distrito` mal cargado en la fuente. Una fila por corrección (snapshot + orden + distrito + partido → distrito correcto); auditable en git y aplicada en staging. |
@@ -201,7 +201,7 @@ stg_partidos ..................... LIMPIEZA AUTOMÁTICA, de lo general a lo part
    │   4. decisiones ERROR_CARGA de la validación humana            -> un partido y un rango de fechas
    │   + guarda nombre_crudo y motivo_nombre (qué paso lo cambió)
    ▼
-int_partidos ..................... HERENCIA: el distrito que integra un nacional toma su nombre
+int_partidos ..................... ESTANDARIZACIÓN: el distrito que integra un nacional toma su nombre
    │
    ▼
 int_cambios_nombre ............... DETECCIÓN: un registro cada vez que un partido pasa a
@@ -211,7 +211,7 @@ validar.py  ───────────────────►  decisi
    │  una persona decide:          ACEPTADO  -> pasa a la tabla oficial
    │                               ERROR_CARGA + nombre correcto -> vuelve a staging (paso 4)
    ▼                               y el falso cambio desaparece
-partidos_cambios_nombre .......... TABLA OFICIAL: solo los homologados (+ heredados del nacional)
+partidos_cambios_nombre .......... TABLA OFICIAL: solo los homologados (+ CAMBIO_NACIONAL)
    │
    ▼
 pub_cambios_nombre ............... presentación (fechas dd-mm-aaaa, orden)
@@ -229,14 +229,14 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 | `stg_partidos` | modelo dbt (staging) | Aplica la limpieza en cascada y conserva el nombre crudo y el motivo de cada modificación. |
 | `limpiar_nombre` | macro dbt | Reglas de formato globales. Para una regla nueva se agrega un `regexp_replace`. |
 | `equivalencias_nombre` | seed (git) | `nombre_variante → nombre_canonico`. La variante se escribe ya limpia. Los nombres con coma van entre comillas (sintaxis CSV). |
-| `int_partidos` | modelo dbt (intermediate) | Herencia del nombre del nacional; la marca como `HEREDADO_NACIONAL`. |
-| `int_cambios_nombre` | modelo dbt (intermediate) | Detecta los cambios: tramo del nombre anterior (desde/hasta), fecha del cambio y `origen_cambio` (PROPIO / HEREDADO_NACIONAL). |
+| `int_partidos` | modelo dbt (intermediate) | Estandarización al nombre del nacional; la marca como `ESTANDARIZACION_NACIONAL`. |
+| `int_cambios_nombre` | modelo dbt (intermediate) | Detecta los cambios: tramo del nombre anterior (desde/hasta), fecha del cambio y `origen_cambio` (`CAMBIO_NACIONAL` si usaba el nombre del nacional antes y después; si no, `PROPIO`). |
 | `validar.py` | script Python (`src/`) | Validación humana por consola. Escribe las decisiones en BigQuery y, al rechazar, puede agregar el error a `equivalencias_nombre`. |
 | `decisiones_cambios_nombre.registro` | tabla BigQuery | Decisiones centralizadas (sirven para cualquiera que corra el pipeline). Solo inserción: nunca se edita ni se borra; prevalece la más reciente. Autor y fecha automáticos. |
 | `stg_decisiones_cambios_nombre` | modelo dbt (staging) | Decisión vigente por cambio. |
-| `partidos_cambios_nombre` | modelo dbt (mart) | Tabla oficial: aceptados + heredados de un nacional aceptado. |
+| `partidos_cambios_nombre` | modelo dbt (mart) | Tabla oficial: aceptados + `CAMBIO_NACIONAL` de un nacional aceptado. |
 | `pub_cambios_nombre` | vista dbt (publicación) | Formato para la hoja. |
-| `auditoria_cambios_nombre` | modelo dbt (mart) | Una fila por partido y cierre en que algo cambió: key, orden, distrito, cierre, `nombre_anterior` (nombre final de la aparición anterior), `nombre_crudo`, `nombre_final` y `motivo` (`FORMATO_NORMALIZACION`, `EQUIVALENCIA`, `HEREDADO_NACIONAL`, `CAMBIO_ACEPTADO`, `ERROR_RECHAZADO` o `PENDIENTE`). Ordenada por key y cierre. |
+| `auditoria_cambios_nombre` | modelo dbt (mart) | Una fila por partido y cierre en que algo cambió: key, orden, distrito, cierre, `nombre_anterior` (nombre final de la aparición anterior), `nombre_crudo`, `nombre_final` y `motivo` (`FORMATO_NORMALIZACION`, `EQUIVALENCIA`, `ESTANDARIZACION_NACIONAL`, `CAMBIO_NACIONAL`, `CAMBIO_ACEPTADO`, `ERROR_RECHAZADO` o `PENDIENTE`). Ordenada por key y cierre. |
 
 ### Dónde se ve cada cosa
 
@@ -262,7 +262,11 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 
 ### Decisiones
 
-**Heredados:** los distritos que integran un nacional **nunca se validan**: siguen al nacional. Si se acepta el cambio del nacional, sus distritos entran a la tabla oficial; si se marca `ERROR_CARGA`, el nombre del nacional se corrige y los distritos lo heredan corregido. Por eso no aparecen en `validar.py` ni en el warning de pendientes.
+**Distritos que integran un nacional:** hay dos casos.
+- `ESTANDARIZACION_NACIONAL`: el distrito integra y su nombre se unifica con el del nacional. No es un cambio de nombre.
+- `CAMBIO_NACIONAL`: el distrito usaba el nombre del nacional antes y después, y cambió porque cambió el nacional. **No se valida**: sigue al nacional. Si se acepta el cambio del nacional, el distrito entra a la tabla oficial; si se marca `ERROR_CARGA`, el nombre del nacional se corrige y el distrito lo toma corregido.
+
+Cualquier otro cambio del nombre final, incluido empezar o dejar de integrar un nacional, es `PROPIO` y **se valida** como cualquier cambio.
 
 | decisión | qué hace |
 |---|---|

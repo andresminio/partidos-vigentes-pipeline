@@ -8,12 +8,12 @@
 --
 -- motivo:
 --   Si el nombre final cambió:
---     HEREDADO_NACIONAL  el cambio viene del nacional que integra (sin validación)
+--     CAMBIO_NACIONAL    el distrito sigue un cambio de nombre del nacional (sin validación)
 --     CAMBIO_ACEPTADO    cambio real homologado en la validación
 --     PENDIENTE          cambio detectado todavía sin decisión
 --   Si el nombre final no cambió (el procesamiento absorbió el cambio del crudo),
 --   el mecanismo más específico que actuó en ese cierre o en el anterior:
---     ERROR_RECHAZADO > EQUIVALENCIA > HEREDADO_NACIONAL > FORMATO_NORMALIZACION
+--     ERROR_RECHAZADO > EQUIVALENCIA > ESTANDARIZACION_NACIONAL > FORMATO_NORMALIZACION
 
 with base as (
 
@@ -55,7 +55,7 @@ eventos as (
 
 ),
 
--- Cambios detectados (para saber si un cambio del nombre final fue heredado).
+-- Cambios detectados (para saber si un cambio del nombre final es del nacional).
 detectados as (
 
     select partido_key, fecha_cambio_nombre, origen_cambio
@@ -75,7 +75,7 @@ aceptados as (
     case {m}
         when 'ERROR_CARGA'       then 1
         when 'EQUIVALENCIA'      then 2
-        when 'HEREDADO_NACIONAL' then 3
+        when 'ESTANDARIZACION_NACIONAL' then 3
         when 'FORMATO_NORMALIZACION' then 4
         else 99
     end
@@ -87,8 +87,8 @@ resuelto as (
         e.*,
         case
             -- El nombre final cambió: lo resolvió la herencia o la validación.
-            when e.cambio_en_final and d.origen_cambio = 'HEREDADO_NACIONAL'
-                then 'HEREDADO_NACIONAL'
+            when e.cambio_en_final and d.origen_cambio = 'CAMBIO_NACIONAL'
+                then 'CAMBIO_NACIONAL'
             when e.cambio_en_final and a.partido_key is not null
                 then 'CAMBIO_ACEPTADO'
             when e.cambio_en_final

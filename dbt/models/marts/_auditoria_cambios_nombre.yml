@@ -28,7 +28,7 @@ models:
         description: >
           Nombre final (ya procesado) que tenía el partido en su aparición
           anterior. Es la referencia del cambio: en CAMBIO_ACEPTADO,
-          HEREDADO_NACIONAL y PENDIENTE el cambio está entre nombre_anterior y
+          CAMBIO_NACIONAL y PENDIENTE el cambio está entre nombre_anterior y
           nombre_final.
       - name: nombre_crudo
         description: "Nombre tal cual vino en el Excel de ese cierre."
@@ -36,15 +36,17 @@ models:
         description: "Nombre después de todo el procesamiento, en ese cierre."
       - name: motivo
         description: >
-          Por qué cambió. Si cambió el nombre final: HEREDADO_NACIONAL (viene del
-          nacional que integra), CAMBIO_ACEPTADO (homologado en la validación) o
-          PENDIENTE (sin decisión). Si el procesamiento absorbió el cambio:
-          ERROR_RECHAZADO, EQUIVALENCIA, HEREDADO_NACIONAL o FORMATO_NORMALIZACION
+          Por qué cambió. Si cambió el nombre final: CAMBIO_NACIONAL (sigue un
+          cambio del nacional que integra), CAMBIO_ACEPTADO (homologado en la
+          validación) o PENDIENTE (sin decisión). Si el procesamiento absorbió el
+          cambio: ERROR_RECHAZADO, EQUIVALENCIA, ESTANDARIZACION_NACIONAL o
+          FORMATO_NORMALIZACION
           (normalización y macro limpiar_nombre). SIN_MOTIVO no debería aparecer.
         data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['FORMATO_NORMALIZACION', 'EQUIVALENCIA',
-                         'HEREDADO_NACIONAL', 'CAMBIO_ACEPTADO', 'ERROR_RECHAZADO',
+                         'ESTANDARIZACION_NACIONAL', 'CAMBIO_NACIONAL',
+                         'CAMBIO_ACEPTADO', 'ERROR_RECHAZADO',
                          'PENDIENTE']

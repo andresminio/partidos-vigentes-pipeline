@@ -4,7 +4,7 @@
 -- que pasaron la validación humana.
 --   - Directos: el cambio fue ACEPTADO en la validación (decisiones_cambios_nombre)
 --     (coinciden partido_key, fecha_cambio_nombre y ambos nombres).
---   - Heredados: un cambio HEREDADO_NACIONAL nunca se valida; sigue al nacional.
+--   - Del nacional: un CAMBIO_NACIONAL nunca se valida; sigue al nacional.
 --     Entra si está aceptado el cambio del nacional que integra (mismo
 --     nro_partido y mismo nombre nuevo). Hereda su decisión y fundamento.
 -- Los cambios sin decisión quedan fuera y se listan en el test
@@ -95,8 +95,14 @@ heredados as (
         on  n.nro_partido         = c.nro_partido
         and n.nombre_nuevo        = c.nombre_nuevo
         and n.fecha_cambio_nombre <= c.fecha_cambio_nombre
-    where c.origen_cambio = 'HEREDADO_NACIONAL'
+    where c.origen_cambio = 'CAMBIO_NACIONAL'
       and c.orden = 'DISTRITO'
+      -- si el cambio ya figura como aceptado en forma directa, no se duplica
+      and not exists (
+          select 1 from directos d
+          where d.partido_key = c.partido_key
+            and d.fecha_cambio_nombre = c.fecha_cambio_nombre
+      )
     qualify row_number() over (
         partition by c.partido_key, c.fecha_cambio_nombre
         order by n.fecha_cambio_nombre desc

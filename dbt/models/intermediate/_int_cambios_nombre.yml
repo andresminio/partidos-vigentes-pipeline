@@ -51,11 +51,12 @@ models:
           - not_null
       - name: origen_cambio
         description: >
-          PROPIO si cambió el nombre propio del partido; HEREDADO_NACIONAL si el
-          nombre propio no cambió y el cambio viene de heredar el nombre del
-          partido nacional que integra.
+          CAMBIO_NACIONAL si el distrito usaba el nombre del nacional que integra
+          antes y después del cambio (es el cambio del nacional; no se valida).
+          PROPIO en cualquier otro caso, incluido empezar o dejar de integrar
+          (se valida).
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ['PROPIO', 'HEREDADO_NACIONAL']
+                values: ['PROPIO', 'CAMBIO_NACIONAL']

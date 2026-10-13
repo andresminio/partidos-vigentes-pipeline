@@ -15,7 +15,7 @@ tabla CENTRALIZADA de solo inserción: la usan todas las personas que corren el
 pipeline, nunca se edita ni se borra, y si se decide de nuevo un mismo cambio
 prevalece la decisión más reciente. Quién decidió y cuándo se registran solos.
 
-Los cambios HEREDADO_NACIONAL nunca se muestran: no se validan, siguen la
+Los cambios CAMBIO_NACIONAL nunca se muestran: no se validan, siguen la
 decisión de su nacional.
 
 Al marcar un error de carga, ofrece agregarlo también al seed equivalencias_nombre
@@ -79,7 +79,7 @@ def asegurar_tabla(client: bigquery.Client) -> None:
 
 
 def leer_pendientes(client: bigquery.Client) -> list:
-    """Cambios detectados sin decisión. Los HEREDADO_NACIONAL nunca se validan:
+    """Cambios detectados sin decisión. Los CAMBIO_NACIONAL nunca se validan:
     siguen la decisión de su nacional."""
     query = f"""
         with decididos as (
@@ -97,7 +97,7 @@ def leer_pendientes(client: bigquery.Client) -> list:
             and d.nombre_anterior     = c.nombre_anterior
             and d.nombre_nuevo        = c.nombre_nuevo
         where d.partido_key is null
-          and c.origen_cambio != 'HEREDADO_NACIONAL'
+          and c.origen_cambio != 'CAMBIO_NACIONAL'
         order by
             cast(c.nro_distrito as int64),
             cast(c.nro_partido as int64),
