@@ -17,5 +17,8 @@ models:
   - name: pub_cambios_nombre
     description: >
       Presentación de los cambios de nombre para la primera hoja del Sheet
-      "Cambios de nombre". Fechas dd-mm-aaaa y orden de filas (orden_fila) por
-      distrito, número, orden y fecha de cambio. El Apps Script la vuelca tal cual.
+      "Cambios de nombre". Fechas dd-mm-aaaa y orden de filas (orden_fila) en dos
+      bloques: primero los nacionales y los distritos que los integran (por número
+      de partido, el nacional primero), después los distritos que no integran (por
+      distrito y número). Incluye integra_nacional (SI/NO; vacío en los nacionales).
+      El Apps Script la vuelca tal cual.
