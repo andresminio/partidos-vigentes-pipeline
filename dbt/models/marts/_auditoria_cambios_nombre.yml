@@ -24,6 +24,12 @@ models:
         description: "Cierre (snapshot) del que proviene la fila."
         data_tests:
           - not_null
+      - name: nombre_anterior
+        description: >
+          Nombre final (ya procesado) que tenía el partido en su aparición
+          anterior. Es la referencia del cambio: en CAMBIO_ACEPTADO,
+          HEREDADO_NACIONAL y PENDIENTE el cambio está entre nombre_anterior y
+          nombre_final.
       - name: nombre_crudo
         description: "Nombre tal cual vino en el Excel de ese cierre."
       - name: nombre_final

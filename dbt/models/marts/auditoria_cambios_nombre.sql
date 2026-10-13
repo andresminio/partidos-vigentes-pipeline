@@ -115,6 +115,7 @@ select
     nro_distrito,
     distrito,
     snapshot_date as cierre,
+    final_anterior as nombre_anterior,
     nombre_crudo,
     nombre_final,
     case motivo_bruto
