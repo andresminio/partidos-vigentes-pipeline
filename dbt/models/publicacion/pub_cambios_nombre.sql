@@ -30,9 +30,6 @@ select
     format_date('%d-%m-%Y', nombre_anterior_hasta) as nombre_anterior_hasta,
     nombre_nuevo,
     format_date('%d-%m-%Y', fecha_cambio_nombre)   as fecha_cambio_nombre,
-    origen_cambio,
-    decision,
-    format_date('%d-%m-%Y', fecha_decision)        as fecha_decision,
-    fundamento
+    origen_cambio
 
 from c

@@ -114,7 +114,7 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 | `pub_historizacion` | publicacion | Presentación de la historización para Google Sheets: nombres finales, SI/NO, fechas dd-mm-aaaa, "cierre actual" en la vigencia abierta y orden de filas. |
 | `pub_resumen` | publicacion | Presentación del resumen mensual para Google Sheets (`snapshot_date` como `fecha_cierre`). |
 | `pub_vigentes` | publicacion | Presentación de la foto actual (partidos vigentes) para Google Sheets, con fechas dd-mm-aaaa y nombres coherentes con la historización. |
-| `pub_cambios_nombre` | publicacion | Presentación de los cambios de nombre homologados para la hoja de cambios de nombre (primera hoja del archivo), con decisión, fecha y fundamento. |
+| `pub_cambios_nombre` | publicacion | Presentación de los cambios de nombre homologados para la hoja de cambios de nombre (primera hoja del archivo). No incluye los datos de la decisión (decisión, fecha, fundamento), que quedan en `partidos_cambios_nombre` y en el registro de decisiones. |
 
 ## Esquema y metadatos (raw)
 
@@ -246,7 +246,7 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 | Los pendientes para decidir | `python validar.py` (consola) |
 | Todos los cambios detectados, sin curar | BigQuery: `dbt_dev.int_cambios_nombre` |
 | Los cambios homologados (oficial) | Google Sheet de cambios de nombre, o BigQuery: `dbt_dev.partidos_cambios_nombre` / `dbt_dev.pub_cambios_nombre` |
-| Las decisiones tomadas (quién, cuándo, por qué) | BigQuery: `decisiones_cambios_nombre.registro` |
+| Las decisiones tomadas (quién, cuándo, por qué) | BigQuery: `decisiones_cambios_nombre.registro` o `dbt_dev.partidos_cambios_nombre` |
 | Todo lo que cambió y qué lo resolvió (raw vs. procesamiento) | BigQuery: `dbt_dev.auditoria_cambios_nombre` |
 | El nombre final de cada partido en cada cierre | Google Sheet de Historización / vigentes, o BigQuery: `dbt_dev.int_partidos` |
 
