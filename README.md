@@ -90,7 +90,7 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 | `ingest.py` | **Punto de entrada 2:** lee los snapshots nuevos del bucket y los carga a `raw.partidos_snapshot`. |
 | `refresh_sheet.py` | Dispara el refresh de las hojas de Google Sheets (llama a cada web app de Apps Script con el token). Las URLs y el token viven en `refresh_config.py`, que **no se commitea**. |
 | `reprocesar.py` | Borra un cierre ya cargado (blob del bucket + filas de raw) para recargarlo corregido. Pide confirmación. |
-| `validar.py` | Validación humana de cambios de nombre. Consola de a un cambio (casos nuevos), `--exportar` a Excel con todos los pendientes y `--importar` para la carga masiva. Inserta las decisiones en `decisiones_cambios_nombre.registro`. |
+| `validar.py` | Validación humana de cambios de nombre. Consola de a un cambio. Inserta las decisiones en `decisiones_cambios_nombre.registro` y, al rechazar, ofrece agregar el error a `equivalencias_nombre`. |
 
 ### Transformación — `dbt/`
 
@@ -231,7 +231,7 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 | `equivalencias_nombre` | seed (git) | `nombre_variante → nombre_canonico`. La variante se escribe ya limpia. Los nombres con coma van entre comillas (sintaxis CSV). |
 | `int_partidos` | modelo dbt (intermediate) | Herencia del nombre del nacional; la marca como `HEREDADO_NACIONAL`. |
 | `int_cambios_nombre` | modelo dbt (intermediate) | Detecta los cambios: tramo del nombre anterior (desde/hasta), fecha del cambio y `origen_cambio` (PROPIO / HEREDADO_NACIONAL). |
-| `validar.py` | script Python (`src/`) | Validación humana: consola, exportación a Excel e importación masiva. Escribe en BigQuery. |
+| `validar.py` | script Python (`src/`) | Validación humana por consola. Escribe las decisiones en BigQuery y, al rechazar, puede agregar el error a `equivalencias_nombre`. |
 | `decisiones_cambios_nombre.registro` | tabla BigQuery | Decisiones centralizadas (sirven para cualquiera que corra el pipeline). Solo inserción: nunca se edita ni se borra; prevalece la más reciente. Autor y fecha automáticos. |
 | `stg_decisiones_cambios_nombre` | modelo dbt (staging) | Decisión vigente por cambio. |
 | `partidos_cambios_nombre` | modelo dbt (mart) | Tabla oficial: aceptados + heredados de un nacional aceptado. |
@@ -243,7 +243,7 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 | quiero ver… | dónde |
 |---|---|
 | Cuántos cambios faltan validar | warning `warn_cambios_nombre_pendientes` al final del `dbt build` / `run_cierre.ps1` |
-| Los pendientes para decidir | `python validar.py` (consola) o el Excel de `python validar.py --exportar` en `revision/` |
+| Los pendientes para decidir | `python validar.py` (consola) |
 | Todos los cambios detectados, sin curar | BigQuery: `dbt_dev.int_cambios_nombre` |
 | Los cambios homologados (oficial) | Google Sheet de cambios de nombre, o BigQuery: `dbt_dev.partidos_cambios_nombre` / `dbt_dev.pub_cambios_nombre` |
 | Las decisiones tomadas (quién, cuándo, por qué) | BigQuery: `decisiones_cambios_nombre.registro` |
@@ -260,8 +260,6 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
    - **n:** los cambios quedan pendientes y se avisan en el próximo build.
 3. Para validar después, desde `src/`: `python validar.py`, luego `dbt build` (en `dbt/`) y `python refresh_sheet.py`.
 
-Para revisiones grandes (por ejemplo, el histórico): `python validar.py --exportar`, completar el Excel (`decision`, `nombre_correcto` si es error, `fundamento` opcional), `python validar.py --importar ARCHIVO`, y `dbt build`.
-
 ### Decisiones
 
 **Heredados:** los distritos que integran un nacional **nunca se validan**: siguen al nacional. Si se acepta el cambio del nacional, sus distritos entran a la tabla oficial; si se marca `ERROR_CARGA`, el nombre del nacional se corrige y los distritos lo heredan corregido. Por eso no aparecen en `validar.py` ni en el warning de pendientes.
@@ -269,7 +267,7 @@ Para revisiones grandes (por ejemplo, el histórico): `python validar.py --expor
 | decisión | qué hace |
 |---|---|
 | `ACEPTADO` | El cambio es real: aparece en la tabla oficial y en la hoja. Si es de un nacional, sus distritos que lo heredan quedan aceptados solos. |
-| `ERROR_CARGA` | Se pide el nombre correcto, que reemplaza **a los dos nombres** (anterior y nuevo) de ese partido en todo el rango de la fila. El falso cambio deja de detectarse. Para conservar el nombre viejo, se escribe el nombre viejo. |
+| `ERROR_CARGA` | Se pide el nombre correcto, que reemplaza **a los dos nombres** (anterior y nuevo) de ese partido en todo el rango de la fila. El falso cambio deja de detectarse. Para conservar el nombre viejo, se escribe el nombre viejo. En la consola, después de confirmar, ofrece agregar el error a `equivalencias_nombre` para que se corrija en todos los partidos y cierres futuros; antes avisa si ese nombre es el de otro partido. |
 
 ### Qué herramienta usar para cada error de nombre
 
@@ -287,8 +285,6 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 - `assert_homologacion_huerfana` (warn): un ACEPTADO que ya no coincide con ningún cambio detectado (hay que revisarlo de nuevo).
 - `warn_correccion_no_aplicada` (warn): un ERROR_CARGA cuyo cambio sigue apareciendo.
 - Grano único en la detección, en la tabla oficial y en la auditoría; valores válidos de `motivo`.
-
-La carpeta `revision/` (Excel de trabajo) no se commitea.
 
 > **Correcciones:** hay dos caminos según el tipo de error.
 > - **Error de `nro_distrito`** (número que no coincide con la identidad del partido): se agrega una fila al seed `dbt/seeds/correcciones_distrito.csv` y se corre `dbt build`. No se toca el raw; la corrección queda versionada.
