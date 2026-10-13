@@ -22,8 +22,6 @@
 -- intervalo cerrado de cierres realmente observados.
 --
 -- Clasificación:
---   tipo_cambio:   ORTOGRAFICO si la distancia de edición (sin espacios ni
---                  puntuación) es <= 2 letras; SUSTANTIVO si es mayor.
 --   origen_cambio: PROPIO si cambió el nombre propio del partido (stg_partidos);
 --                  HEREDADO_NACIONAL si el propio no cambió y el cambio viene de
 --                  heredar el nombre del nacional (regla de int_partidos).
@@ -144,14 +142,7 @@ con_tramo_anterior as (
 
 cambios as (
 
-    select
-        *,
-        -- Distancia de edición sobre el nombre sin espacios ni puntuación, para que
-        -- "P.A.I.S" vs "PAIS" o "PRO - X" vs "PRO-X" no consuman el margen.
-        edit_distance(
-            regexp_replace(nombre_anterior, r'[^A-ZÑ0-9]', ''),
-            regexp_replace(nombre,          r'[^A-ZÑ0-9]', '')
-        ) as distancia_edicion
+    select *
     from con_tramo_anterior
     where nombre_anterior is not null      -- el primer tramo no es un cambio
 
@@ -169,8 +160,6 @@ select
     nombre as nombre_nuevo,
     desde  as fecha_cambio_nombre,
     hasta  as nombre_nuevo_hasta,
-    distancia_edicion,
-    case when distancia_edicion <= 2 then 'ORTOGRAFICO' else 'SUSTANTIVO' end as tipo_cambio,
     case when propio_inicio_tramo is distinct from propio_fin_tramo_anterior
          then 'PROPIO' else 'HEREDADO_NACIONAL' end as origen_cambio
 from cambios

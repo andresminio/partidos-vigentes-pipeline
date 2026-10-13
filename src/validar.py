@@ -15,8 +15,8 @@ tabla CENTRALIZADA de solo inserción: la usan todas las personas que corren el
 pipeline, nunca se edita ni se borra, y si se decide de nuevo un mismo cambio
 prevalece la decisión más reciente. Quién decidió y cuándo se registran solos.
 
-Los cambios HEREDADO_NACIONAL no se muestran si existe el cambio del nacional:
-heredan su decisión.
+Los cambios HEREDADO_NACIONAL nunca se muestran: no se validan, siguen la
+decisión de su nacional.
 
 Uso (con el venv activo, desde src/):
   python validar.py                      consola, de a un cambio (casos nuevos)
@@ -80,7 +80,8 @@ def asegurar_tabla(client: bigquery.Client) -> None:
 
 
 def leer_pendientes(client: bigquery.Client) -> list:
-    """Cambios detectados sin decisión, salvo heredados cuyo nacional cambió igual."""
+    """Cambios detectados sin decisión. Los HEREDADO_NACIONAL nunca se validan:
+    siguen la decisión de su nacional."""
     query = f"""
         with decididos as (
             select distinct partido_key, fecha_cambio_nombre, nombre_anterior, nombre_nuevo
@@ -88,11 +89,6 @@ def leer_pendientes(client: bigquery.Client) -> list:
         ),
         cambios as (
             select * from `{TABLA_CAMBIOS}`
-        ),
-        cambios_nacionales as (
-            select nro_partido, fecha_cambio_nombre, nombre_nuevo
-            from cambios
-            where orden = 'NACIONAL'
         )
         select c.*
         from cambios c
@@ -102,15 +98,7 @@ def leer_pendientes(client: bigquery.Client) -> list:
             and d.nombre_anterior     = c.nombre_anterior
             and d.nombre_nuevo        = c.nombre_nuevo
         where d.partido_key is null
-          and not (
-              c.origen_cambio = 'HEREDADO_NACIONAL'
-              and exists (
-                  select 1 from cambios_nacionales n
-                  where n.nro_partido         = c.nro_partido
-                    and n.fecha_cambio_nombre = c.fecha_cambio_nombre
-                    and n.nombre_nuevo        = c.nombre_nuevo
-              )
-          )
+          and c.origen_cambio != 'HEREDADO_NACIONAL'
         order by
             cast(c.nro_distrito as int64),
             cast(c.nro_partido as int64),
@@ -185,7 +173,7 @@ def fecha(d) -> str:
 def mostrar(i: int, total: int, c: dict) -> None:
     print()
     print(f"[{i}/{total}] {c['partido_key']}  {c['distrito']}   "
-          f"({c['tipo_cambio']}, dist {c['distancia_edicion']}, {c['origen_cambio']})")
+          f"({c['origen_cambio']})")
     print(f"  ANTERIOR: {c['nombre_anterior']}")
     print(f"            desde {fecha(c['nombre_anterior_desde'])} hasta {fecha(c['nombre_anterior_hasta'])}")
     print(f"  NUEVO:    {c['nombre_nuevo']}")
@@ -202,8 +190,6 @@ DECISIONES_VALIDAS = {"ACEPTADO", "ERROR_CARGA"}
 COLUMNAS_INFO = [
     ("partido_key", "partido_key"),
     ("distrito", "distrito"),
-    ("tipo_cambio", "tipo_cambio"),
-    ("distancia_edicion", "distancia_edicion"),
     ("origen_cambio", "origen_cambio"),
     ("nombre_anterior", "nombre_anterior"),
     ("anterior_desde", "nombre_anterior_desde"),

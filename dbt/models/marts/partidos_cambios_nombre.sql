@@ -4,9 +4,9 @@
 -- que pasaron la validación humana.
 --   - Directos: el cambio fue ACEPTADO en la validación (decisiones_cambios_nombre)
 --     (coinciden partido_key, fecha_cambio_nombre y ambos nombres).
---   - Heredados: un cambio HEREDADO_NACIONAL de un partido de distrito se acepta
---     si está aceptado el cambio del nacional que integra (mismo nro_partido,
---     misma fecha de cambio y mismo nombre nuevo). Hereda su decisión y fundamento.
+--   - Heredados: un cambio HEREDADO_NACIONAL nunca se valida; sigue al nacional.
+--     Entra si está aceptado el cambio del nacional que integra (mismo
+--     nro_partido y mismo nombre nuevo). Hereda su decisión y fundamento.
 -- Los cambios sin decisión quedan fuera y se listan en el test
 -- warn_cambios_nombre_pendientes. Los errores de carga no llegan acá: se
 -- corrigen en staging (ERROR_CARGA) y dejan de detectarse.
@@ -46,8 +46,6 @@ directos as (
         c.nombre_anterior_hasta,
         c.nombre_nuevo,
         c.fecha_cambio_nombre,
-        c.distancia_edicion,
-        c.tipo_cambio,
         c.origen_cambio,
         h.decision,
         h.fecha_decision,
@@ -82,8 +80,6 @@ heredados as (
         c.nombre_anterior_hasta,
         c.nombre_nuevo,
         c.fecha_cambio_nombre,
-        c.distancia_edicion,
-        c.tipo_cambio,
         c.origen_cambio,
         n.decision,
         n.fecha_decision,
@@ -91,18 +87,20 @@ heredados as (
         n.revisado_por,
         n.partido_key as decision_heredada_de
     from cambios c
+    -- Regla: el heredado nunca se valida; sigue al nacional. Se toma el cambio
+    -- aceptado del nacional con el mismo número y el mismo nombre nuevo, el más
+    -- reciente a la fecha del distrito (no se exige la misma fecha: si el
+    -- distrito faltó en algún cierre, su cambio se detecta más tarde).
     join nacionales_aceptados n
         on  n.nro_partido         = c.nro_partido
-        and n.fecha_cambio_nombre = c.fecha_cambio_nombre
         and n.nombre_nuevo        = c.nombre_nuevo
+        and n.fecha_cambio_nombre <= c.fecha_cambio_nombre
     where c.origen_cambio = 'HEREDADO_NACIONAL'
       and c.orden = 'DISTRITO'
-      -- si el cambio ya fue aceptado en forma directa, no se duplica
-      and not exists (
-          select 1 from directos d
-          where d.partido_key = c.partido_key
-            and d.fecha_cambio_nombre = c.fecha_cambio_nombre
-      )
+    qualify row_number() over (
+        partition by c.partido_key, c.fecha_cambio_nombre
+        order by n.fecha_cambio_nombre desc
+    ) = 1
 
 )
 

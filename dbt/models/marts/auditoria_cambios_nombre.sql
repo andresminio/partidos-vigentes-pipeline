@@ -1,18 +1,19 @@
 {{ config(materialized='table') }}
 
--- AUDITORÍA de cambios de nombre: TODOS los cambios, por cualquier motivo, con la
--- trazabilidad de qué vino del raw y qué hizo el procesamiento.
--- Grano: partido x cierre en que cambió el nombre CRUDO (tal cual el Excel) o el
--- nombre FINAL (después de todo el procesamiento) respecto de la aparición
--- anterior del partido.
+-- AUDITORÍA de cambios de nombre: todos los cambios, por cualquier motivo, para
+-- separar lo que trajo el Excel (nombre crudo) de lo que hizo el procesamiento
+-- (nombre final). Se construye sobre cada cierre (int_partidos), no sobre el SCD2:
+-- una fila por partido y cierre en que cambió el nombre crudo o el final respecto
+-- de la aparición anterior del partido.
 --
--- resolucion:
---   Si el nombre final NO cambió (el procesamiento absorbió el cambio del crudo),
---   el mecanismo más específico que actuó en alguno de los dos cierres:
---     ERROR_CARGA > EQUIVALENCIA > HEREDADO_NACIONAL
---     > LIMPIEZA_FORMATO > NORMALIZACION
---   Si el nombre final SÍ cambió, el estado de la validación humana:
---     ACEPTADO / HEREDADO_ACEPTADO (está en partidos_cambios_nombre) o PENDIENTE.
+-- motivo:
+--   Si el nombre final cambió:
+--     HEREDADO_NACIONAL  el cambio viene del nacional que integra (sin validación)
+--     CAMBIO_ACEPTADO    cambio real homologado en la validación
+--     PENDIENTE          cambio detectado todavía sin decisión
+--   Si el nombre final no cambió (el procesamiento absorbió el cambio del crudo),
+--   el mecanismo más específico que actuó en ese cierre o en el anterior:
+--     ERROR_RECHAZADO > EQUIVALENCIA > HEREDADO_NACIONAL > LIMPIEZA_FORMATO > NORMALIZACION
 
 with base as (
 
@@ -22,7 +23,6 @@ with base as (
         orden,
         nro_distrito,
         distrito,
-        nro_partido,
         nombre_crudo,
         partido_politico as nombre_final,
         motivo_nombre
@@ -47,7 +47,6 @@ eventos as (
 
     select
         *,
-        nombre_crudo is distinct from crudo_anterior as cambio_en_crudo,
         nombre_final is distinct from final_anterior as cambio_en_final
     from con_anterior
     where fecha_anterior is not null
@@ -56,20 +55,29 @@ eventos as (
 
 ),
 
-curados as (
+-- Cambios detectados (para saber si un cambio del nombre final fue heredado).
+detectados as (
 
-    select partido_key, fecha_cambio_nombre, decision_heredada_de
+    select partido_key, fecha_cambio_nombre, origen_cambio
+    from {{ ref('int_cambios_nombre') }}
+
+),
+
+-- Cambios homologados en la validación.
+aceptados as (
+
+    select partido_key, fecha_cambio_nombre
     from {{ ref('partidos_cambios_nombre') }}
 
 ),
 
 {% set prioridad %}
     case {m}
-        when 'ERROR_CARGA'        then 1
-        when 'EQUIVALENCIA'       then 3
-        when 'HEREDADO_NACIONAL'  then 4
-        when 'LIMPIEZA_FORMATO'   then 5
-        when 'NORMALIZACION'      then 6
+        when 'ERROR_CARGA'       then 1
+        when 'EQUIVALENCIA'      then 2
+        when 'HEREDADO_NACIONAL' then 3
+        when 'LIMPIEZA_FORMATO'  then 4
+        when 'NORMALIZACION'     then 5
         else 99
     end
 {% endset %}
@@ -79,19 +87,26 @@ resuelto as (
     select
         e.*,
         case
-            when e.cambio_en_final and c.partido_key is not null
-                then if(c.decision_heredada_de is null, 'ACEPTADO', 'HEREDADO_ACEPTADO')
+            -- El nombre final cambió: lo resolvió la herencia o la validación.
+            when e.cambio_en_final and d.origen_cambio = 'HEREDADO_NACIONAL'
+                then 'HEREDADO_NACIONAL'
+            when e.cambio_en_final and a.partido_key is not null
+                then 'CAMBIO_ACEPTADO'
             when e.cambio_en_final
                 then 'PENDIENTE'
+            -- El nombre final no cambió: el mecanismo más específico que actuó.
             when {{ prioridad.replace('{m}', 'e.motivo_nombre') }}
                  <= {{ prioridad.replace('{m}', 'e.motivo_anterior') }}
                 then coalesce(e.motivo_nombre, e.motivo_anterior)
             else coalesce(e.motivo_anterior, e.motivo_nombre)
-        end as resolucion
+        end as motivo_bruto
     from eventos e
-    left join curados c
-        on  c.partido_key         = e.partido_key
-        and c.fecha_cambio_nombre = e.snapshot_date
+    left join detectados d
+        on  d.partido_key         = e.partido_key
+        and d.fecha_cambio_nombre = e.snapshot_date
+    left join aceptados a
+        on  a.partido_key         = e.partido_key
+        and a.fecha_cambio_nombre = e.snapshot_date
 
 )
 
@@ -100,16 +115,12 @@ select
     orden,
     nro_distrito,
     distrito,
-    nro_partido,
-    fecha_anterior,
-    snapshot_date  as fecha_cambio,
-    crudo_anterior,
-    nombre_crudo   as crudo_nuevo,
-    final_anterior,
-    nombre_final   as final_nuevo,
-    cambio_en_crudo,
-    cambio_en_final,
-    motivo_anterior,
-    motivo_nombre  as motivo_nuevo,
-    coalesce(resolucion, 'SIN_MOTIVO') as resolucion
+    snapshot_date as cierre,
+    nombre_crudo,
+    nombre_final,
+    case motivo_bruto
+        when 'ERROR_CARGA' then 'ERROR_RECHAZADO'
+        else coalesce(motivo_bruto, 'SIN_MOTIVO')
+    end as motivo
 from resuelto
+order by partido_key, cierre

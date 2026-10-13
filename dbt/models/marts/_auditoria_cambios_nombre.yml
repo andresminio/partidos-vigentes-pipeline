@@ -3,48 +3,42 @@ version: 2
 models:
   - name: auditoria_cambios_nombre
     description: >
-      Auditoría de TODOS los cambios de nombre, por cualquier motivo. Una fila por
-      partido y cierre en que cambió el nombre crudo (tal cual el Excel de origen)
-      o el nombre final (después del procesamiento) respecto de la aparición
-      anterior del partido. Separa lo que vino del raw de lo que hizo el
-      procesamiento. La tabla oficial de cambios homologados es
-      partidos_cambios_nombre; esta es su trazabilidad completa.
+      Auditoría de todos los cambios de nombre, por cualquier motivo. Se construye
+      sobre cada cierre (no sobre el SCD2): una fila por partido y cierre en que
+      cambió el nombre crudo (tal cual el Excel de origen) o el nombre final
+      (después del procesamiento) respecto de la aparición anterior del partido.
+      Ordenada por partido_key y cierre (al consultar, ordenar igual: BigQuery no
+      garantiza el orden de una tabla).
     columns:
       - name: partido_key
+        description: "Clave de la organización partidaria. Ej: D-05-218."
         data_tests:
           - not_null
-      - name: fecha_anterior
-        description: "Cierre anterior en que figuraba el partido."
-      - name: fecha_cambio
-        description: "Cierre en que se detecta el cambio."
+      - name: orden
+        description: "DISTRITO o NACIONAL."
+      - name: nro_distrito
+        description: "Código de distrito, texto padeado a 2."
+      - name: distrito
+        description: "Nombre del distrito (canónico)."
+      - name: cierre
+        description: "Cierre (snapshot) del que proviene la fila."
         data_tests:
           - not_null
-      - name: crudo_anterior
-        description: "Nombre tal cual vino en el Excel, en el cierre anterior."
-      - name: crudo_nuevo
-        description: "Nombre tal cual vino en el Excel, en este cierre."
-      - name: final_anterior
-        description: "Nombre después de todo el procesamiento, en el cierre anterior."
-      - name: final_nuevo
-        description: "Nombre después de todo el procesamiento, en este cierre."
-      - name: cambio_en_crudo
-        description: "True si el nombre crudo cambió (lo trajo el raw)."
-      - name: cambio_en_final
-        description: "True si el nombre final cambió (sobrevive al procesamiento)."
-      - name: motivo_anterior
-        description: "Paso que modificó el nombre en el cierre anterior (nulo si ninguno)."
-      - name: motivo_nuevo
-        description: "Paso que modificó el nombre en este cierre (nulo si ninguno)."
-      - name: resolucion
+      - name: nombre_crudo
+        description: "Nombre tal cual vino en el Excel de ese cierre."
+      - name: nombre_final
+        description: "Nombre después de todo el procesamiento, en ese cierre."
+      - name: motivo
         description: >
-          Quién resolvió el cambio. Si el nombre final no cambió: el mecanismo que
-          lo absorbió (ERROR_CARGA, EQUIVALENCIA,
-          HEREDADO_NACIONAL, LIMPIEZA_FORMATO, NORMALIZACION). Si cambió: ACEPTADO,
-          HEREDADO_ACEPTADO o PENDIENTE. SIN_MOTIVO no debería aparecer.
+          Por qué cambió. Si cambió el nombre final: HEREDADO_NACIONAL (viene del
+          nacional que integra), CAMBIO_ACEPTADO (homologado en la validación) o
+          PENDIENTE (sin decisión). Si el procesamiento absorbió el cambio:
+          ERROR_RECHAZADO, EQUIVALENCIA, HEREDADO_NACIONAL, LIMPIEZA_FORMATO o
+          NORMALIZACION. SIN_MOTIVO no debería aparecer.
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ['ERROR_CARGA', 'EQUIVALENCIA',
-                         'HEREDADO_NACIONAL', 'LIMPIEZA_FORMATO', 'NORMALIZACION',
-                         'ACEPTADO', 'HEREDADO_ACEPTADO', 'PENDIENTE']
+                values: ['LIMPIEZA_FORMATO', 'NORMALIZACION', 'EQUIVALENCIA',
+                         'HEREDADO_NACIONAL', 'CAMBIO_ACEPTADO', 'ERROR_RECHAZADO',
+                         'PENDIENTE']

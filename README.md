@@ -99,14 +99,14 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 | `stg_partidos` | staging | Tipa los datos crudos, aplica las correcciones de distrito, rellena `nro_partido` faltante desde la historia del partido, construye `partido_key` y estandariza el nombre de distrito. Aplica la cascada de limpieza de nombres (normalización → `limpiar_nombre` → `equivalencias_nombre` → decisiones `ERROR_CARGA`) y conserva `nombre_crudo` y `motivo_nombre` para trazabilidad. |
 | `stg_decisiones_cambios_nombre` | staging | Decisión vigente (la más reciente) por cada cambio de nombre revisado, desde la fuente `decisiones_cambios_nombre.registro`. |
 | `int_partidos` | intermediate | Reemplaza el nombre de los partidos de distrito que integran un nacional por el nombre del nacional (solo si son parecidos; con guarda de similitud). Marca esos casos como `HEREDADO_NACIONAL`. |
-| `int_cambios_nombre` | intermediate | Detección de cambios de nombre, sin curar: una fila por cada vez que un partido pasa a llamarse distinto, con el tramo del nombre anterior (desde/hasta), `tipo_cambio` (ORTOGRAFICO si la distancia de edición es ≤ 2, si no SUSTANTIVO) y `origen_cambio` (PROPIO o HEREDADO_NACIONAL). |
+| `int_cambios_nombre` | intermediate | Detección de cambios de nombre, sin curar: una fila por cada vez que un partido pasa a llamarse distinto, con el tramo del nombre anterior (desde/hasta), la fecha del cambio y `origen_cambio` (PROPIO o HEREDADO_NACIONAL). |
 | `partidos_historia` | SCD2 | Historización por vigencia: una fila por tramo continuo, con `valid_from`, `valid_to`, `is_current`. |
 | `partidos_vigentes` | marts | Foto actual del Registro (`is_current`). |
 | `movimientos_mensuales` | marts | Altas y bajas por mes (más `neto`). |
 | `partidos_snapshots` | marts | Detalle por partido y mes (todos los snapshots); backbone del tablero, con `is_current` y coordenadas por distrito. |
 | `resumen_mensual_partidos` | marts | Cantidad de partidos por tipo de orden y mes. |
 | `partidos_cambios_nombre` | marts | Cambios de nombre **homologados**: los aceptados en la validación humana, más los heredados de un nacional aceptado. Tabla oficial. |
-| `auditoria_cambios_nombre` | marts | **Todos** los cambios de nombre, por partido y cierre: nombre crudo vs. final y `resolucion` (qué mecanismo lo absorbió, o ACEPTADO / HEREDADO_ACEPTADO / PENDIENTE). |
+| `auditoria_cambios_nombre` | marts | **Todos** los cambios de nombre, por partido y cierre (sobre cada cierre, no sobre el SCD2): `nombre_crudo`, `nombre_final` y `motivo`. |
 | `distritos` | seed | Tabla oficial de los 24 distritos electorales: número → nombre canónico y coordenadas (centro de provincia). |
 | `correcciones_distrito` | seed | Correcciones puntuales de `nro_distrito` mal cargado en la fuente. Una fila por corrección (snapshot + orden + distrito + partido → distrito correcto); auditable en git y aplicada en staging. |
 | `equivalencias_nombre` | seed | Errores de escritura conocidos (`nombre_variante → nombre_canonico`), aplicados por nombre en todos los partidos y cierres. La variante se escribe ya limpia (sin acentos, sin `*VER`, sin espacios alrededor del guion). |
@@ -148,7 +148,7 @@ Metadatos incorporados por la ingesta:
 - **Integridad del SCD2 (`partidos_historia`):** grano único (`partido_key + valid_from`), rango válido (`valid_from <= valid_to`), sin solapamientos de vigencia por partido, un solo `is_current` por partido.
 - **Guarda de nombre de nacional (`warn`):** marca los distritales cuyo nombre difiere demasiado del nacional del mismo número (no se corrige solo, se revisa).
 - **Guarda de distrito (`warn`):** marca contradicciones número↔nombre de distrito (ej. `nro 6` con "CAPITAL FEDERAL" cuando el 6 es CHACO). Umbral estricto porque los nombres son cortos.
-- **Cambios de nombre:** grano único y nombres distintos en la detección y en la tabla homologada; `warn_cambios_nombre_pendientes` lista en cada cierre los cambios sin decisión; `assert_homologacion_huerfana` (`warn`) avisa si un ACEPTADO ya no coincide con ningún cambio detectado; `warn_correccion_no_aplicada` avisa si un ERROR_CARGA sigue apareciendo; la auditoría tiene grano único y valores válidos de `resolucion`.
+- **Cambios de nombre:** grano único y nombres distintos en la detección y en la tabla homologada; `warn_cambios_nombre_pendientes` lista en cada cierre los cambios sin decisión; `assert_homologacion_huerfana` (`warn`) avisa si un ACEPTADO ya no coincide con ningún cambio detectado; `warn_correccion_no_aplicada` avisa si un ERROR_CARGA sigue apareciendo; la auditoría tiene grano único y valores válidos de `motivo`.
 
 ## Idempotencia
 
@@ -219,7 +219,7 @@ pub_cambios_nombre ............... presentación (fechas dd-mm-aaaa, orden)
    ▼
 Google Sheet de cambios de nombre  (primera hoja, la vuelca el Apps Script)
 
-En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y quién los resolvió
+En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y el motivo
 ```
 
 ### Qué hace cada pieza
@@ -230,20 +230,20 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y q
 | `limpiar_nombre` | macro dbt | Reglas de formato globales. Para una regla nueva se agrega un `regexp_replace`. |
 | `equivalencias_nombre` | seed (git) | `nombre_variante → nombre_canonico`. La variante se escribe ya limpia. Los nombres con coma van entre comillas (sintaxis CSV). |
 | `int_partidos` | modelo dbt (intermediate) | Herencia del nombre del nacional; la marca como `HEREDADO_NACIONAL`. |
-| `int_cambios_nombre` | modelo dbt (intermediate) | Detecta los cambios: tramo del nombre anterior (desde/hasta), fecha del cambio, `tipo_cambio` (ORTOGRAFICO ≤ 2 letras / SUSTANTIVO) y `origen_cambio` (PROPIO / HEREDADO_NACIONAL). |
+| `int_cambios_nombre` | modelo dbt (intermediate) | Detecta los cambios: tramo del nombre anterior (desde/hasta), fecha del cambio y `origen_cambio` (PROPIO / HEREDADO_NACIONAL). |
 | `validar.py` | script Python (`src/`) | Validación humana: consola, exportación a Excel e importación masiva. Escribe en BigQuery. |
 | `decisiones_cambios_nombre.registro` | tabla BigQuery | Decisiones centralizadas (sirven para cualquiera que corra el pipeline). Solo inserción: nunca se edita ni se borra; prevalece la más reciente. Autor y fecha automáticos. |
 | `stg_decisiones_cambios_nombre` | modelo dbt (staging) | Decisión vigente por cambio. |
 | `partidos_cambios_nombre` | modelo dbt (mart) | Tabla oficial: aceptados + heredados de un nacional aceptado. |
 | `pub_cambios_nombre` | vista dbt (publicación) | Formato para la hoja. |
-| `auditoria_cambios_nombre` | modelo dbt (mart) | Todos los cambios por partido y cierre, con `resolucion`: lo absorbió `LIMPIEZA_FORMATO` / `NORMALIZACION` / `EQUIVALENCIA` / `HEREDADO_NACIONAL` / `ERROR_CARGA`, o quedó `ACEPTADO` / `HEREDADO_ACEPTADO` / `PENDIENTE`. |
+| `auditoria_cambios_nombre` | modelo dbt (mart) | Una fila por partido y cierre en que algo cambió: key, orden, distrito, cierre, `nombre_crudo`, `nombre_final` y `motivo` (`LIMPIEZA_FORMATO`, `NORMALIZACION`, `EQUIVALENCIA`, `HEREDADO_NACIONAL`, `CAMBIO_ACEPTADO`, `ERROR_RECHAZADO` o `PENDIENTE`). Ordenada por key y cierre. |
 
 ### Dónde se ve cada cosa
 
 | quiero ver… | dónde |
 |---|---|
-| Cuántos cambios faltan validar | warning `warn_cambios_nombre_pendientes` al final del `dbt build` / `run_cierre.ps1` (incluye heredados) |
-| Los pendientes para decidir | `python validar.py` (consola) o el Excel de `python validar.py --exportar` en `revision/` (excluyen heredados, que siguen al nacional) |
+| Cuántos cambios faltan validar | warning `warn_cambios_nombre_pendientes` al final del `dbt build` / `run_cierre.ps1` |
+| Los pendientes para decidir | `python validar.py` (consola) o el Excel de `python validar.py --exportar` en `revision/` |
 | Todos los cambios detectados, sin curar | BigQuery: `dbt_dev.int_cambios_nombre` |
 | Los cambios homologados (oficial) | Google Sheet de cambios de nombre, o BigQuery: `dbt_dev.partidos_cambios_nombre` / `dbt_dev.pub_cambios_nombre` |
 | Las decisiones tomadas (quién, cuándo, por qué) | BigQuery: `decisiones_cambios_nombre.registro` |
@@ -263,6 +263,8 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y q
 Para revisiones grandes (por ejemplo, el histórico): `python validar.py --exportar`, completar el Excel (`decision`, `nombre_correcto` si es error, `fundamento` opcional), `python validar.py --importar ARCHIVO`, y `dbt build`.
 
 ### Decisiones
+
+**Heredados:** los distritos que integran un nacional **nunca se validan**: siguen al nacional. Si se acepta el cambio del nacional, sus distritos entran a la tabla oficial; si se marca `ERROR_CARGA`, el nombre del nacional se corrige y los distritos lo heredan corregido. Por eso no aparecen en `validar.py` ni en el warning de pendientes.
 
 | decisión | qué hace |
 |---|---|
@@ -284,7 +286,7 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 - `warn_cambios_nombre_pendientes` (warn): cambios sin decisión.
 - `assert_homologacion_huerfana` (warn): un ACEPTADO que ya no coincide con ningún cambio detectado (hay que revisarlo de nuevo).
 - `warn_correccion_no_aplicada` (warn): un ERROR_CARGA cuyo cambio sigue apareciendo.
-- Grano único en la detección, en la tabla oficial y en la auditoría; valores válidos de `resolucion`.
+- Grano único en la detección, en la tabla oficial y en la auditoría; valores válidos de `motivo`.
 
 La carpeta `revision/` (Excel de trabajo) no se commitea.
 

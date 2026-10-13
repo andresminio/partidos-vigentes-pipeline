@@ -49,19 +49,6 @@ models:
         description: "Último cierre del tramo con el nombre nuevo (antes del siguiente cambio)."
         data_tests:
           - not_null
-      - name: distancia_edicion
-        description: >
-          Cantidad de operaciones de una letra (agregar, quitar o reemplazar) entre
-          ambos nombres, comparados sin espacios ni puntuación.
-        data_tests:
-          - not_null
-      - name: tipo_cambio
-        description: "ORTOGRAFICO si distancia_edicion <= 2; SUSTANTIVO si es mayor."
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['ORTOGRAFICO', 'SUSTANTIVO']
       - name: origen_cambio
         description: >
           PROPIO si cambió el nombre propio del partido; HEREDADO_NACIONAL si el

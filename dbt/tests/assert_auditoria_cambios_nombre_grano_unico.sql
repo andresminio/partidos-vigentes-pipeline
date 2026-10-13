@@ -2,8 +2,8 @@
 -- Devuelve las combinaciones repetidas; si devuelve cero filas, el test pasa.
 select
     partido_key,
-    fecha_cambio,
+    cierre,
     count(*) as n
 from {{ ref('auditoria_cambios_nombre') }}
-group by partido_key, fecha_cambio
+group by partido_key, cierre
 having count(*) > 1

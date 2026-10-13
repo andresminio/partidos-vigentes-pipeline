@@ -1,5 +1,6 @@
--- Cola de validación: cambios de nombre detectados que todavía no tienen decisión
--- (no están aceptados ni heredan una aceptación). severity='warn': se reportan en
+-- Cola de validación: cambios de nombre detectados que todavía no tienen decisión.
+-- Los HEREDADO_NACIONAL no se cuentan: nunca se validan, siguen la decisión de su
+-- nacional. severity='warn': se reportan en
 -- cada cierre sin frenar el pipeline. Se resuelven con la consola de validación:
 --   cd src ; python validar.py   (aceptar o marcar como error de carga)
 {{ config(severity='warn') }}
@@ -9,10 +10,10 @@ select
     c.fecha_cambio_nombre,
     c.nombre_anterior,
     c.nombre_nuevo,
-    c.tipo_cambio,
     c.origen_cambio
 from {{ ref('int_cambios_nombre') }} c
 left join {{ ref('partidos_cambios_nombre') }} p
     on  p.partido_key         = c.partido_key
     and p.fecha_cambio_nombre = c.fecha_cambio_nombre
 where p.partido_key is null
+  and c.origen_cambio != 'HEREDADO_NACIONAL'

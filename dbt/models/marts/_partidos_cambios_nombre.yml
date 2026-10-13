@@ -35,10 +35,6 @@ models:
         description: "Primer cierre con el nombre nuevo."
         data_tests:
           - not_null
-      - name: distancia_edicion
-        description: "Letras agregadas, quitadas o reemplazadas entre ambos nombres (sin espacios ni puntuación)."
-      - name: tipo_cambio
-        description: "ORTOGRAFICO si distancia_edicion <= 2; SUSTANTIVO si es mayor."
       - name: origen_cambio
         description: "PROPIO o HEREDADO_NACIONAL."
       - name: decision
