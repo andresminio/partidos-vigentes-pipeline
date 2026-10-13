@@ -126,7 +126,7 @@ corregido_nombre as (
         -- específico que actuó). Nulo si ninguno lo tocó.
         case
             when eq.nombre_canonico is not null then 'EQUIVALENCIA'
-            when {{ limpiar_nombre('n.partido_politico') }} != n.partido_politico then 'LIMPIEZA_FORMATO'
+            when {{ limpiar_nombre('n.partido_politico') }} != n.partido_politico then 'FORMATO_NORMALIZACION'
         end as motivo_nombre
     from corregido n
     left join equivalencias eq
@@ -266,7 +266,7 @@ final as (
             case
                 when cd.nombre_correcto is not null then 'ERROR_CARGA'
                 when s.motivo_nombre is not null then s.motivo_nombre
-                when s.nombre_crudo is distinct from s.partido_politico then 'NORMALIZACION'
+                when s.nombre_crudo is distinct from s.partido_politico then 'FORMATO_NORMALIZACION'
             end as motivo_nombre
         )
     from staging s

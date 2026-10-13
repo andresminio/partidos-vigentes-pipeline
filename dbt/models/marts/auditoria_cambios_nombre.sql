@@ -13,7 +13,7 @@
 --     PENDIENTE          cambio detectado todavía sin decisión
 --   Si el nombre final no cambió (el procesamiento absorbió el cambio del crudo),
 --   el mecanismo más específico que actuó en ese cierre o en el anterior:
---     ERROR_RECHAZADO > EQUIVALENCIA > HEREDADO_NACIONAL > LIMPIEZA_FORMATO > NORMALIZACION
+--     ERROR_RECHAZADO > EQUIVALENCIA > HEREDADO_NACIONAL > FORMATO_NORMALIZACION
 
 with base as (
 
@@ -76,8 +76,7 @@ aceptados as (
         when 'ERROR_CARGA'       then 1
         when 'EQUIVALENCIA'      then 2
         when 'HEREDADO_NACIONAL' then 3
-        when 'LIMPIEZA_FORMATO'  then 4
-        when 'NORMALIZACION'     then 5
+        when 'FORMATO_NORMALIZACION' then 4
         else 99
     end
 {% endset %}

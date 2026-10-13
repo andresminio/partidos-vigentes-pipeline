@@ -236,7 +236,7 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 | `stg_decisiones_cambios_nombre` | modelo dbt (staging) | Decisión vigente por cambio. |
 | `partidos_cambios_nombre` | modelo dbt (mart) | Tabla oficial: aceptados + heredados de un nacional aceptado. |
 | `pub_cambios_nombre` | vista dbt (publicación) | Formato para la hoja. |
-| `auditoria_cambios_nombre` | modelo dbt (mart) | Una fila por partido y cierre en que algo cambió: key, orden, distrito, cierre, `nombre_crudo`, `nombre_final` y `motivo` (`LIMPIEZA_FORMATO`, `NORMALIZACION`, `EQUIVALENCIA`, `HEREDADO_NACIONAL`, `CAMBIO_ACEPTADO`, `ERROR_RECHAZADO` o `PENDIENTE`). Ordenada por key y cierre. |
+| `auditoria_cambios_nombre` | modelo dbt (mart) | Una fila por partido y cierre en que algo cambió: key, orden, distrito, cierre, `nombre_crudo`, `nombre_final` y `motivo` (`FORMATO_NORMALIZACION`, `EQUIVALENCIA`, `HEREDADO_NACIONAL`, `CAMBIO_ACEPTADO`, `ERROR_RECHAZADO` o `PENDIENTE`). Ordenada por key y cierre. |
 
 ### Dónde se ve cada cosa
 

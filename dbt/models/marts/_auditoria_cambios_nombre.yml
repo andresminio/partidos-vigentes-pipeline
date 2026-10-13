@@ -33,12 +33,12 @@ models:
           Por qué cambió. Si cambió el nombre final: HEREDADO_NACIONAL (viene del
           nacional que integra), CAMBIO_ACEPTADO (homologado en la validación) o
           PENDIENTE (sin decisión). Si el procesamiento absorbió el cambio:
-          ERROR_RECHAZADO, EQUIVALENCIA, HEREDADO_NACIONAL, LIMPIEZA_FORMATO o
-          NORMALIZACION. SIN_MOTIVO no debería aparecer.
+          ERROR_RECHAZADO, EQUIVALENCIA, HEREDADO_NACIONAL o FORMATO_NORMALIZACION
+          (normalización y macro limpiar_nombre). SIN_MOTIVO no debería aparecer.
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ['LIMPIEZA_FORMATO', 'NORMALIZACION', 'EQUIVALENCIA',
+                values: ['FORMATO_NORMALIZACION', 'EQUIVALENCIA',
                          'HEREDADO_NACIONAL', 'CAMBIO_ACEPTADO', 'ERROR_RECHAZADO',
                          'PENDIENTE']
