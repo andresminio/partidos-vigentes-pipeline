@@ -23,6 +23,7 @@ with base as (
         orden,
         nro_distrito,
         distrito,
+        nro_partido,
         nombre_crudo,
         partido_politico as nombre_final,
         motivo_nombre
@@ -114,6 +115,7 @@ select
     orden,
     nro_distrito,
     distrito,
+    nro_partido,
     snapshot_date as cierre,
     final_anterior as nombre_anterior,
     nombre_crudo,

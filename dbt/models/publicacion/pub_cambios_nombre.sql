@@ -4,12 +4,13 @@
 -- Script solo vuelca esta vista tal cual, así que cambiar la presentación no
 -- requiere re-desplegar el web app.
 --
--- Orden en dos bloques:
---   1. Nacionales y los distritos que los integran: por número de partido, el
---      nacional primero, después sus distritos (por número de distrito) y por fecha.
---      Así quedan juntos todos los cambios de un mismo partido nacional.
---   2. Distritos que no integran un nacional: por distrito, número y fecha.
--- "Integra" se toma del cierre en que se produjo el cambio.
+-- Orden en dos bloques, según el ORIGEN del cambio:
+--   1. Cambios del nacional: los nacionales y los distritos que heredan su cambio
+--      (origen_cambio = CAMBIO_NACIONAL). Por número de partido, el nacional
+--      primero, después sus distritos (por número de distrito) y por fecha.
+--   2. Cambios distritales propios (origen_cambio = PROPIO), integren o no un
+--      nacional: por número de distrito, número de partido y fecha.
+-- integra_nacional (SI/NO) se toma del cierre en que se produjo el cambio.
 
 with c as (
 
@@ -30,8 +31,8 @@ base as (
         c.*,
         i.integra_partido_nacional,
         case
-            when c.orden = 'NACIONAL' then 1
-            when i.integra_partido_nacional then 1
+            when c.orden = 'NACIONAL'                 then 1
+            when c.origen_cambio = 'CAMBIO_NACIONAL'  then 1
             else 2
         end as bloque
     from c

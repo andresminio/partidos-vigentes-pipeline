@@ -18,7 +18,16 @@ models:
     description: >
       Presentación de los cambios de nombre para la primera hoja del Sheet
       "Cambios de nombre". Fechas dd-mm-aaaa y orden de filas (orden_fila) en dos
-      bloques: primero los nacionales y los distritos que los integran (por número
-      de partido, el nacional primero), después los distritos que no integran (por
-      distrito y número). Incluye integra_nacional (SI/NO; vacío en los nacionales).
+      bloques según el origen del cambio: primero los cambios del nacional (los
+      nacionales y los distritos que heredan su cambio, por número de partido, el
+      nacional primero), después los cambios distritales propios, integren o no
+      (por número de distrito y número de partido). Incluye integra_nacional
+      (SI/NO; vacío en los nacionales). El Apps Script la vuelca tal cual.
+  - name: pub_auditoria_cambios_nombre
+    description: >
+      Presentación de la auditoría de cambios de nombre para la segunda hoja del
+      Sheet "Cambios de nombre". Una fila por partido y cierre en que cambió el
+      nombre crudo o el final. Cierre dd-mm-aaaa y orden de filas (orden_fila):
+      primero los nacionales por número de partido, después los distritos por
+      número de distrito y número de partido; dentro de cada partido, por cierre.
       El Apps Script la vuelca tal cual.
