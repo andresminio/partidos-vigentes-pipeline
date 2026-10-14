@@ -146,7 +146,12 @@ Metadatos incorporados por la ingesta:
 
 - **Tests de clave y catálogo (staging):** `partido_key + snapshot_date` único, `partido_key` / `nro_distrito` / `nro_partido` no nulos, `orden` ∈ {DISTRITO, NACIONAL}.
 - **Integridad del SCD2 (`partidos_historia`):** grano único (`partido_key + valid_from`), rango válido (`valid_from <= valid_to`), sin solapamientos de vigencia por partido, un solo `is_current` por partido.
-- **Guarda de nombre de nacional (`warn`):** marca los distritales cuyo nombre difiere demasiado del nacional del mismo número (no se corrige solo, se revisa).
+- **Guarda de nombre de nacional (`warn`, `warn_nombres_divergentes_del_nacional`):** marca los distritales cuyo nombre difiere demasiado del nacional del mismo número (no se corrige solo, se revisa). La regla, en `int_partidos`:
+  - Aplica solo a distritos con `integra_partido_nacional = SI`, comparados contra el nacional del **mismo número de partido y el mismo cierre**, con los nombres ya normalizados en staging.
+  - Se mide la **distancia de edición (Levenshtein)**, o sea cuántas letras hay que agregar, borrar o cambiar para pasar de un nombre al otro, **dividida por el largo del nombre más largo**. Da un valor entre 0 (iguales) y 1 (totalmente distintos).
+  - **≤ 0.40** → se considera una variación de escritura: el distrito toma el nombre del nacional (`ESTANDARIZACION_NACIONAL`).
+  - **> 0.40** → no se toca: queda con su propio nombre, la guarda lo reporta y sugiere el nombre del nacional (`nombre_nacional_sugerido`).
+  - Ejemplos: `PARTIDO SOCILISTA` vs `PARTIDO SOCIALISTA` → 1 / 18 = **0.06** → se estandariza. `UNITE POR LA LIBERTAD Y LA DIGNIDAD` vs `UNION POR LA LIBERTAD` → 16 / 35 = **0.46** → se reporta.
 - **Guarda de distrito (`warn`):** marca contradicciones número↔nombre de distrito (ej. `nro 6` con "CAPITAL FEDERAL" cuando el 6 es CHACO). Umbral estricto porque los nombres son cortos.
 - **Cambios de nombre:** grano único y nombres distintos en la detección y en la tabla homologada; `warn_cambios_nombre_pendientes` lista en cada cierre los cambios sin decisión; `assert_homologacion_huerfana` (`warn`) avisa si un ACEPTADO ya no coincide con ningún cambio detectado; `warn_correccion_no_aplicada` avisa si un ERROR_CARGA sigue apareciendo; la auditoría tiene grano único y valores válidos de `motivo`.
 
@@ -293,7 +298,61 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 > **Correcciones:** hay dos caminos según el tipo de error.
 > - **Error de `nro_distrito`** (número que no coincide con la identidad del partido): se agrega una fila al seed `dbt/seeds/correcciones_distrito.csv` y se corre `dbt build`. No se toca el raw; la corrección queda versionada.
 > - **Error de nombre:** según el alcance, ver la tabla de herramientas en *Flujo de cambios de nombre* (macro `limpiar_nombre`, seed `equivalencias_nombre` o `validar.py`), y después `dbt build`.
-> - **Corte defectuoso / archivo corregido** (reprocesar un mes ya cargado): se corre `python reprocesar.py --fecha DD-MM-YYYY`, que borra el blob del bucket y las filas de raw de ese `snapshot_date` (pide confirmación). Después se pone el Excel corregido en `data/` y se corre `run_cierre.ps1`: el pipeline detecta el mes faltante, lo recarga y reconstruye la historia. El pipeline solo agrega meses nuevos; no pisa los existentes, por eso primero hay que eliminar el corte.
+> - **Archivo corregido de un mes ya cargado:** si llega un segundo archivo del mismo mes porque hubo un cambio, se pone en `data/` y se corre `run_cierre.ps1`. Entre los archivos de un mismo mes se toma el de **fecha de modificación más reciente**, y el pipeline reemplaza ese mes solo (ver *Idempotencia*).
+> - **Eliminar un mes:** `python reprocesar.py --fecha DD-MM-YYYY` borra el archivo del bucket y las filas del raw de ese `snapshot_date` (pide confirmación). Después se corre `dbt build`.
+
+## Avisos y errores al procesar (qué hacer)
+
+`run_cierre.ps1` corre en orden **upload → ingest → dbt build → refresh**. En la consola pueden aparecer dos tipos de mensajes:
+
+| tipo | cómo se ve | qué pasa |
+|---|---|---|
+| **Error** | en rojo: `FALLO en: <paso> (codigo N). Proceso detenido.` y arriba la salida completa del paso | El cierre **se detiene**. Los pasos siguientes no corren y las hojas quedan con los datos anteriores. Hay que corregir y volver a correr `run_cierre.ps1`. |
+| **Aviso (warn)** | en amarillo: `warning: ... WARN <n> <nombre_del_test>` | El cierre **sigue y se publica**. `<n>` es la cantidad de casos. Se revisan y, si corresponde, se corrigen para el próximo build. |
+
+**Ver los casos de un aviso o de un test que falló.** Después del `dbt build`, el SQL ya traducido de cada test queda en `dbt\target\compiled\<proyecto>\tests\<nombre_del_test>.sql`. Se pega en BigQuery y devuelve las filas problemáticas. El archivo de `dbt\tests\` no se puede pegar directo: tiene `{{ ref(...) }}`, que solo entiende dbt.
+
+### Avisos (no frenan)
+
+| aviso | qué significa | qué hacer |
+|---|---|---|
+| `warn_cambios_nombre_pendientes` | Cambios de nombre detectados que todavía no tienen decisión. No cuenta los `CAMBIO_NACIONAL`, que nunca se validan. | Responder `s` a *"Validar ahora?"* al final del cierre, o más tarde: `python validar.py` → `dbt build` → `python refresh_sheet.py`. En cada caso, **ACEPTADO** si el cambio es real y **ERROR_CARGA** si es un error del Excel (en ese caso ofrece pasarlo a `equivalencias_nombre`). Mientras tanto, los pendientes no aparecen en la hoja de cambios y figuran como `PENDIENTE` en la auditoría. |
+| `assert_homologacion_huerfana` | Un **ACEPTADO** ya no coincide con ningún cambio detectado. Algo cambió por debajo después de la decisión, por ejemplo una equivalencia o una regla del macro nuevas que modificaron uno de los dos nombres. | Mirar el caso. Si el cambio sigue existiendo con nombres levemente distintos, aparece de nuevo en `warn_cambios_nombre_pendientes` y se valida otra vez con `validar.py`. Si el cambio desapareció (la corrección lo absorbió), la decisión vieja quedó sin efecto. Como las decisiones no se borran, el aviso va a seguir apareciendo. |
+| `warn_correccion_no_aplicada` | Un **ERROR_CARGA** cuyo cambio sigue apareciendo. La corrección no alcanzó: el error cae fuera del rango corregido o la estandarización al nacional vuelve a generar la diferencia. | Si el nombre erróneo se repite, cargarlo en `dbt/seeds/equivalencias_nombre.csv`, que aplica a todos los cierres, y correr `dbt build`. |
+| `warn_nombres_divergentes_del_nacional` | Un distrito que integra un nacional tiene un nombre demasiado distinto al del nacional del mismo número (distancia > 0.40, ver *Calidad de datos y guardas*). No se estandariza solo. | Si es una variación de escritura del nombre del nacional, cargar la equivalencia en `equivalencias_nombre` y correr `dbt build`. Si es el nombre propio y legítimo del distrito, no hay que hacer nada: el aviso es esperable y se repite en cada cierre. |
+| `warn_distritos_inconsistentes` | El nombre de distrito que trae el Excel contradice el número (ej. nro 6 con "CAPITAL FEDERAL", cuando el 6 es CHACO). El nombre se toma del número, así que el riesgo es que **el número** esté mal. | Revisar en el Excel. Si el número está mal, agregar la fila en `dbt/seeds/correcciones_distrito.csv` y correr `dbt build`. |
+
+### Errores (frenan el cierre)
+
+**En upload / ingest**
+
+| mensaje | causa | qué hacer |
+|---|---|---|
+| `Reauthentication needed`, `DefaultCredentialsError`, `401` / `403` | Se venció o falta la sesión de Google Cloud. | Volver a autenticarse con `gcloud auth application-default login`, usando la impersonación de la cuenta de servicio del proyecto, y correr de nuevo. |
+| Un Excel no figura como subido ni cargado | El nombre no tiene una fecha reconocible y se ignora. | Renombrarlo según *Convención de nombre de archivo* y correr de nuevo. |
+| Error al leer el Excel (columnas faltantes, hoja vacía) | El archivo cambió de formato. | Comparar con un Excel anterior. No se edita el raw: se corrige el archivo o se adapta el parser. |
+
+**En `dbt build`.** Aparece como `FAIL <n> <nombre_del_test>` o `ERROR`. Los modelos que dependen del que falló se saltean (`SKIP`).
+
+| test / mensaje | causa probable | qué hacer |
+|---|---|---|
+| `assert_partido_key_unico_por_snapshot`, `unique` / `not_null` de staging | El Excel trae filas duplicadas o números vacíos, o una corrección de distrito generó dos partidos con la misma clave. | Ver los casos (SQL compilado). Corregir el Excel y reprocesar el mes, o ajustar `correcciones_distrito.csv`. |
+| `accepted_values` de `orden` | Apareció un valor nuevo en la columna orden (distinto de DISTRITO/NACIONAL). | Revisar el Excel. Si el valor es legítimo, agregarlo a los valores aceptados en el `.yml`. |
+| `assert_historia_*` (grano, rango, solapamiento, un vigente) | La historia de vigencias quedó inconsistente. Suele pasar después de reprocesar o reemplazar un mes. | No publicar. Ver los casos y revisar el corte que se cargó. |
+| `assert_cambios_nombre_curada_grano_unico` | Hay dos decisiones vigentes distintas para el mismo partido y cierre en la tabla de decisiones. | Revisar `decisiones_cambios_nombre.registro` en BigQuery. Prevalece la más reciente por cambio, así que el choque viene de dos cambios con nombres distintos en el mismo cierre. |
+| `assert_cambios_nombre_grano_unico`, `assert_cambios_nombre_distintos`, `assert_auditoria_cambios_nombre_grano_unico`, `accepted_values` de `origen_cambio` / `motivo` | Problema de lógica en los modelos, no de los datos. | Revisar el último cambio hecho en los modelos. |
+| `Database Error ... Unrecognized name`, `Syntax error` | Error de SQL en un modelo editado. | Corregir el modelo que figura en el mensaje. |
+
+**En refresh**
+
+| mensaje | causa | qué hacer |
+|---|---|---|
+| `OK: <hoja> -> no autorizado` | El token de `refresh_config.py` no coincide con el del Apps Script. | Igualar los dos. |
+| `OK: <hoja> -> <!DOCTYPE html>...` (página de login de Google) | El web app no está publicado con acceso *Cualquier usuario*, o falta publicar la última versión. | Apps Script → Implementar → Gestionar implementaciones → editar → **Nueva versión**, con acceso *Cualquier usuario*. |
+| `HTTP Error 500` o timeout | Falló el Apps Script. Por ejemplo, la vista que lee todavía no existe porque no se corrió `dbt build`. | Revisar en Apps Script → *Ejecuciones*, corregir y volver a correr `python refresh_sheet.py`. |
+| `Falta configurar URLS/TOKEN` | No se encuentra `refresh_config.py`. | Verificar que el archivo esté en `src/`. |
+
+> Ojo: `refresh_sheet.py` imprime `OK:` aunque la respuesta no sea la esperada. Lo que confirma que anduvo es el texto que sigue: `OK: datos actualizados <fecha>`.
 
 ## Fuente
 
