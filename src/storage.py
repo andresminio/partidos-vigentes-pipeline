@@ -1,3 +1,4 @@
+from functools import lru_cache
 from io import BytesIO
 
 import pandas as pd
@@ -6,8 +7,14 @@ from google.cloud import storage
 from config import BUCKET, PROJECT_ID
 
 
+@lru_cache(maxsize=1)
 def get_storage_client():
-    """Devuelve un cliente autenticado de Cloud Storage."""
+    """
+    Devuelve un cliente autenticado de Cloud Storage.
+
+    Se crea una sola vez por corrida y se reutiliza: cada cliente nuevo pide
+    credenciales (impersonación), y eso es lo que más tarda.
+    """
     return storage.Client(project=PROJECT_ID)
 
 
@@ -55,12 +62,15 @@ def upload_file(local_path, blob_name: str) -> None:
     blob.upload_from_filename(str(local_path))
 
 
-def get_blob_meta(blob_name: str):
+def listar_blobs() -> dict:
     """
-    Devuelve el blob con su metadata (`updated`, `md5_hash`), o None si no existe.
-    Se usa para decidir si re-subir (md5 distinto) o reprocesar (updated mas nuevo).
+    Devuelve {nombre: blob} de todo el bucket, con una sola consulta.
+
+    Cada blob ya trae su metadata (`md5_hash`, `updated`): se usa para decidir
+    si re-subir (md5 distinto) o reprocesar (updated mas nuevo) sin consultar
+    archivo por archivo.
     """
     client = get_storage_client()
     bucket = client.bucket(BUCKET)
 
-    return bucket.get_blob(blob_name)
+    return {blob.name: blob for blob in bucket.list_blobs()}

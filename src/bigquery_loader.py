@@ -1,4 +1,6 @@
 # IMPORTS
+from functools import lru_cache
+
 import pandas as pd
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
@@ -17,9 +19,12 @@ METADATA_SCHEMA = {
 REQUIRED_FIELDS = {"snapshot_date"}
 
 # CLIENTE
+@lru_cache(maxsize=1)
 def get_bigquery_client() -> bigquery.Client:
     """
     Devuelve un cliente autenticado de BigQuery.
+
+    Se crea una sola vez por corrida y se reutiliza en todas las consultas.
     """
 
     return bigquery.Client(project=PROJECT_ID, location=LOCATION)

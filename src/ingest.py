@@ -12,8 +12,13 @@ def main():
 
     # Blobs del bucket con una fecha reconocible en el nombre, ordenados
     # cronologicamente. Lo unico que importa del nombre es la fecha.
+    # Una sola consulta al bucket con la metadata de todos los blobs.
+    en_bucket = storage.listar_blobs()
+
     blobs = []
-    for nombre in storage.list_excel_files():
+    for nombre in en_bucket:
+        if not nombre.lower().endswith(".xlsx"):
+            continue
         try:
             blobs.append((parser.extract_snapshot_date(nombre), nombre))
         except ValueError:
@@ -30,7 +35,7 @@ def main():
     for i, (fecha, nombre) in enumerate(blobs, start=1):
 
         ingested_at = cargadas.get(fecha)
-        meta = storage.get_blob_meta(nombre)
+        meta = en_bucket.get(nombre)
         blob_updated = meta.updated if meta is not None else None
 
         if ingested_at is None:

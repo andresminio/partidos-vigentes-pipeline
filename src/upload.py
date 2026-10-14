@@ -48,16 +48,19 @@ def main():
         print(f"No hay archivos validos en {DATA_DIR}.")
         return
 
+    # Una sola consulta al bucket con la metadata de todos los blobs.
+    en_bucket = storage.listar_blobs()
+
     total = len(elegidos)
 
     for i, (fecha, path) in enumerate(sorted(elegidos.items()), start=1):
 
         # Se sube con nombre estandar derivado de la fecha (un blob por fecha).
         blob = parser.canonical_name(fecha)
-        meta = storage.get_blob_meta(blob)
+        meta = en_bucket.get(blob)
 
         # Idempotencia por contenido: si el blob existe y el md5 coincide, no se
-        # re-sube (evita disparar un reprocesamiento al pedo en el ingest).
+        # re-sube (evita disparar un reprocesamiento innecesario en el ingest).
         if meta is not None and meta.md5_hash == _local_md5(path):
             print(f"[{i}/{total}] [SKIP] sin cambios: {path.name} -> {blob} ({fecha})")
             continue
