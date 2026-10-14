@@ -347,12 +347,12 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 
 | mensaje | causa | qué hacer |
 |---|---|---|
-| `OK: <hoja> -> no autorizado` | El token de `refresh_config.py` no coincide con el del Apps Script. | Igualar los dos. |
-| `OK: <hoja> -> <!DOCTYPE html>...` (página de login de Google) | El web app no está publicado con acceso *Cualquier usuario*, o falta publicar la última versión. | Apps Script → Implementar → Gestionar implementaciones → editar → **Nueva versión**, con acceso *Cualquier usuario*. |
-| `HTTP Error 500` o timeout | Falló el Apps Script. Por ejemplo, la vista que lee todavía no existe porque no se corrió `dbt build`. | Revisar en Apps Script → *Ejecuciones*, corregir y volver a correr `python refresh_sheet.py`. |
+| `ERROR: <hoja> -> no autorizado` | El token de `refresh_config.py` no coincide con el del Apps Script. | Igualar los dos. |
+| `ERROR: <hoja> -> <!DOCTYPE html>...` (página de login de Google) | El web app no está publicado con acceso *Cualquier usuario*, o falta publicar la última versión. | Apps Script → Implementar → Gestionar implementaciones → editar → **Nueva versión**, con acceso *Cualquier usuario*. |
+| `ERROR: <hoja> -> HTTP Error 500` o timeout | Falló el Apps Script. Por ejemplo, la vista que lee todavía no existe porque no se corrió `dbt build`. | Revisar en Apps Script → *Ejecuciones*, corregir y volver a correr `python refresh_sheet.py`. |
 | `Falta configurar URLS/TOKEN` | No se encuentra `refresh_config.py`. | Verificar que el archivo esté en `src/`. |
 
-> Ojo: `refresh_sheet.py` imprime `OK:` aunque la respuesta no sea la esperada. Lo que confirma que anduvo es el texto que sigue: `OK: datos actualizados <fecha>`.
+Si anduvo, cada hoja muestra `OK: <hoja> -> OK: datos actualizados <fecha>`. Si falla alguna, `refresh_sheet.py` intenta igual con las demás, al final lista las que fallaron y el cierre se detiene en rojo (`FALLO en: Refresh`).
 
 ## Fuente
 
