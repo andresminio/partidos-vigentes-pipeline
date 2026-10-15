@@ -142,14 +142,73 @@ Metadatos incorporados por la ingesta:
 | `_ingested_at` | Timestamp de carga (UTC). |
 | `_row_number` | Número de fila dentro del Excel. |
 
+## Qué ejecuta `dbt build`
+
+Cada `dbt build` recorre **78 pasos**: 3 seeds, 16 modelos y 59 controles (tests). Es el total que muestra el cierre en el paso 4 ("OK - 78 pasos..."); si se agregan o quitan modelos o controles, el número cambia.
+
+**3 seeds** (tablas que se cargan desde los CSV de `dbt/seeds/`):
+
+| seed | contenido |
+|---|---|
+| `distritos` | número y nombre oficial de cada distrito |
+| `correcciones_distrito` | número de distrito mal cargado en el Excel para un partido en un cierre, con el número correcto |
+| `equivalencias_nombre` | nombre mal escrito → nombre correcto |
+
+**16 modelos** (tablas y vistas que arma el pipeline):
+
+| capa | modelos |
+|---|---|
+| staging (2) | `stg_partidos` (limpieza del Excel), `stg_decisiones_cambios_nombre` (decisión vigente de cada cambio) |
+| intermediate (2) | `int_partidos` (estandarización al nombre del nacional), `int_cambios_nombre` (detección de cambios de nombre) |
+| marts (7) | `partidos_historia`, `partidos_snapshots`, `partidos_vigentes`, `movimientos_mensuales`, `resumen_mensual_partidos`, `partidos_cambios_nombre`, `auditoria_cambios_nombre` |
+| publicación (5) | `pub_historizacion`, `pub_vigentes`, `pub_resumen`, `pub_cambios_nombre`, `pub_auditoria_cambios_nombre` (las vistas que leen las hojas) |
+
+**59 controles.** Cada control es una consulta que busca filas con problemas: si devuelve 0 filas, pasa. Los declarados en los `.yml` se generan uno por columna; los propios están en `dbt/tests/`.
+
+| tipo | cant. | qué verifica | si falla |
+|---|---|---|---|
+| campo obligatorio (`not_null`) | 39 | que columnas clave no vengan vacías (detalle abajo) | frena el cierre |
+| sin repetidos (`unique`) | 2 | `distritos.nro_distrito` y `equivalencias_nombre.nombre_variante` | frena el cierre |
+| valores permitidos (`accepted_values`) | 5 | `orden` (DISTRITO / NACIONAL), `origen_cambio` (PROPIO / CAMBIO_NACIONAL), `decision` (ACEPTADO / ERROR_CARGA, en las decisiones y en la tabla oficial) y `motivo` de la auditoría | frena el cierre |
+| reglas propias (`assert_*`) | 9 | ver tabla abajo | frena el cierre |
+| avisos (`warn_*`) | 4 | ver *Calidad de datos y guardas* y *Avisos y errores al procesar* | no frena: se informa en el cierre |
+
+Campos obligatorios, por tabla:
+
+| tabla | columnas | cant. |
+|---|---|---|
+| `stg_partidos` | partido_key, nro_distrito, nro_partido | 3 |
+| `partidos_historia` | partido_key, valid_from, valid_to, is_current | 4 |
+| `int_cambios_nombre` | partido_key, fecha_cambio_nombre, nombre_anterior, nombre_anterior_desde, nombre_anterior_hasta, nombre_nuevo, nombre_nuevo_hasta, origen_cambio | 8 |
+| `partidos_cambios_nombre` | partido_key, fecha_cambio_nombre, decision, fecha_decision, fundamento | 5 |
+| `stg_decisiones_cambios_nombre` | partido_key, fecha_cambio_nombre, nombre_anterior, nombre_nuevo, decision, fundamento, decidido_por, decidido_en | 8 |
+| `auditoria_cambios_nombre` | partido_key, cierre, motivo | 3 |
+| seed `correcciones_distrito` | snapshot_date, nro_distrito, nro_partido, nro_distrito_correcto | 4 |
+| seed `distritos` | nro_distrito, distrito | 2 |
+| seed `equivalencias_nombre` | nombre_variante, nombre_canonico | 2 |
+
+Reglas propias:
+
+| control | qué verifica |
+|---|---|
+| `assert_partido_key_unico_por_snapshot` | un partido aparece una sola vez por cierre |
+| `assert_historia_grano_unico` | la historia no tiene versiones duplicadas (`partido_key + valid_from`) |
+| `assert_historia_rango_valido` | cada versión tiene `valid_from <= valid_to` |
+| `assert_historia_sin_solapamiento` | dos versiones de un partido no se pisan en el tiempo |
+| `assert_historia_un_vigente_por_partido` | un solo `is_current` por partido |
+| `assert_cambios_nombre_grano_unico` | un solo cambio detectado por partido y cierre |
+| `assert_cambios_nombre_distintos` | en un cambio, el nombre anterior y el nuevo son distintos |
+| `assert_cambios_nombre_curada_grano_unico` | la tabla oficial tiene un solo cambio por partido y cierre |
+| `assert_auditoria_cambios_nombre_grano_unico` | la auditoría tiene una fila por partido y cierre |
+
 ## Calidad de datos y guardas
 
 - **Tests de clave y catálogo (staging):** `partido_key + snapshot_date` único, `partido_key` / `nro_distrito` / `nro_partido` no nulos, `orden` ∈ {DISTRITO, NACIONAL}.
 - **Integridad del SCD2 (`partidos_historia`):** grano único (`partido_key + valid_from`), rango válido (`valid_from <= valid_to`), sin solapamientos de vigencia por partido, un solo `is_current` por partido.
 - **Guarda de nombre de nacional (`warn`, `warn_nombres_divergentes_del_nacional`):** marca los partidos de distrito que integran un nacional pero figuran con un nombre demasiado distinto al del nacional del mismo número (no se corrige solo, se revisa). Solo reporta los casos **nuevos del último cierre**: los ya conocidos (mismo partido, mismo nombre) no se repiten cierre a cierre. La regla, en `int_partidos`:
-  - Aplica solo a distritos con `integra_partido_nacional = SI`, comparados contra el nacional del **mismo número de partido y el mismo cierre**, con los nombres ya normalizados en staging.
+  - Aplica solo a partidos de distrito con `integra_partido_nacional = SI`, comparados contra el nacional del **mismo número de partido y el mismo cierre**, con los nombres ya normalizados en staging.
   - Se mide la **distancia de edición (Levenshtein)**, o sea cuántas letras hay que agregar, borrar o cambiar para pasar de un nombre al otro, **dividida por el largo del nombre más largo**. Da un valor entre 0 (iguales) y 1 (totalmente distintos).
-  - **≤ 0.40** → se considera una variación de escritura: el distrito toma el nombre del nacional (`ESTANDARIZACION_NACIONAL`).
+  - **≤ 0.40** → se considera una variación de escritura: el partido de distrito toma el nombre del nacional (`ESTANDARIZACION_NACIONAL`).
   - **> 0.40** → no se toca: queda con su propio nombre, la guarda lo reporta y sugiere el nombre del nacional (`nombre_nacional_sugerido`).
   - Ejemplos: `PARTIDO SOCILISTA` vs `PARTIDO SOCIALISTA` → 1 / 18 = **0.06** → se estandariza. `UNITE POR LA LIBERTAD Y LA DIGNIDAD` vs `UNION POR LA LIBERTAD` → 16 / 35 = **0.46** → se reporta.
 - **Guarda de distrito (`warn`):** marca contradicciones número↔nombre de distrito (ej. `nro 6` con "CAPITAL FEDERAL" cuando el 6 es CHACO). Umbral estricto porque los nombres son cortos.
