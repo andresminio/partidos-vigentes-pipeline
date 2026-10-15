@@ -146,14 +146,14 @@ Metadatos incorporados por la ingesta:
 
 - **Tests de clave y catálogo (staging):** `partido_key + snapshot_date` único, `partido_key` / `nro_distrito` / `nro_partido` no nulos, `orden` ∈ {DISTRITO, NACIONAL}.
 - **Integridad del SCD2 (`partidos_historia`):** grano único (`partido_key + valid_from`), rango válido (`valid_from <= valid_to`), sin solapamientos de vigencia por partido, un solo `is_current` por partido.
-- **Guarda de nombre de nacional (`warn`, `warn_nombres_divergentes_del_nacional`):** marca los distritales cuyo nombre difiere demasiado del nacional del mismo número (no se corrige solo, se revisa). La regla, en `int_partidos`:
+- **Guarda de nombre de nacional (`warn`, `warn_nombres_divergentes_del_nacional`):** marca los partidos de distrito que integran un nacional pero figuran con un nombre demasiado distinto al del nacional del mismo número (no se corrige solo, se revisa). Solo reporta los casos **nuevos del último cierre**: los ya conocidos (mismo partido, mismo nombre) no se repiten cierre a cierre. La regla, en `int_partidos`:
   - Aplica solo a distritos con `integra_partido_nacional = SI`, comparados contra el nacional del **mismo número de partido y el mismo cierre**, con los nombres ya normalizados en staging.
   - Se mide la **distancia de edición (Levenshtein)**, o sea cuántas letras hay que agregar, borrar o cambiar para pasar de un nombre al otro, **dividida por el largo del nombre más largo**. Da un valor entre 0 (iguales) y 1 (totalmente distintos).
   - **≤ 0.40** → se considera una variación de escritura: el distrito toma el nombre del nacional (`ESTANDARIZACION_NACIONAL`).
   - **> 0.40** → no se toca: queda con su propio nombre, la guarda lo reporta y sugiere el nombre del nacional (`nombre_nacional_sugerido`).
   - Ejemplos: `PARTIDO SOCILISTA` vs `PARTIDO SOCIALISTA` → 1 / 18 = **0.06** → se estandariza. `UNITE POR LA LIBERTAD Y LA DIGNIDAD` vs `UNION POR LA LIBERTAD` → 16 / 35 = **0.46** → se reporta.
 - **Guarda de distrito (`warn`):** marca contradicciones número↔nombre de distrito (ej. `nro 6` con "CAPITAL FEDERAL" cuando el 6 es CHACO). Umbral estricto porque los nombres son cortos.
-- **Cambios de nombre:** grano único y nombres distintos en la detección y en la tabla homologada; `warn_cambios_nombre_pendientes` lista en cada cierre los cambios sin decisión; `assert_homologacion_huerfana` (`warn`) avisa si un ACEPTADO ya no coincide con ningún cambio detectado; `warn_correccion_no_aplicada` avisa si un ERROR_CARGA sigue apareciendo; la auditoría tiene grano único y valores válidos de `motivo`.
+- **Cambios de nombre:** grano único y nombres distintos en la detección y en la tabla homologada; `warn_cambios_nombre_pendientes` lista en cada cierre los cambios sin decisión; `warn_correccion_no_aplicada` avisa si un ERROR_CARGA sigue apareciendo; la auditoría tiene grano único y valores válidos de `motivo`.
 
 ## Idempotencia
 
@@ -291,7 +291,6 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 ### Controles (tests dbt)
 
 - `warn_cambios_nombre_pendientes` (warn): cambios sin decisión.
-- `assert_homologacion_huerfana` (warn): un ACEPTADO que ya no coincide con ningún cambio detectado (hay que revisarlo de nuevo).
 - `warn_correccion_no_aplicada` (warn): un ERROR_CARGA cuyo cambio sigue apareciendo.
 - Grano único en la detección, en la tabla oficial y en la auditoría; valores válidos de `motivo`.
 
@@ -317,9 +316,8 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 | aviso | qué significa | qué hacer |
 |---|---|---|
 | `warn_cambios_nombre_pendientes` | Cambios de nombre detectados que todavía no tienen decisión. No cuenta los `CAMBIO_NACIONAL`, que nunca se validan. | Responder `s` a *"Validar ahora?"* al final del cierre, o más tarde: `python validar.py` → `dbt build` → `python refresh_sheet.py`. En cada caso, **ACEPTADO** si el cambio es real y **ERROR_CARGA** si es un error del Excel (en ese caso ofrece pasarlo a `equivalencias_nombre`). Mientras tanto, los pendientes no aparecen en la hoja de cambios y figuran como `PENDIENTE` en la auditoría. |
-| `assert_homologacion_huerfana` | Un **ACEPTADO** ya no coincide con ningún cambio detectado. Algo cambió por debajo después de la decisión, por ejemplo una equivalencia o una regla del macro nuevas que modificaron uno de los dos nombres. | Mirar el caso. Si el cambio sigue existiendo con nombres levemente distintos, aparece de nuevo en `warn_cambios_nombre_pendientes` y se valida otra vez con `validar.py`. Si el cambio desapareció (la corrección lo absorbió), la decisión vieja quedó sin efecto. Como las decisiones no se borran, el aviso va a seguir apareciendo. |
 | `warn_correccion_no_aplicada` | Un **ERROR_CARGA** cuyo cambio sigue apareciendo. La corrección no alcanzó: el error cae fuera del rango corregido o la estandarización al nacional vuelve a generar la diferencia. | Si el nombre erróneo se repite, cargarlo en `dbt/seeds/equivalencias_nombre.csv`, que aplica a todos los cierres, y correr `dbt build`. |
-| `warn_nombres_divergentes_del_nacional` | Un distrito que integra un nacional tiene un nombre demasiado distinto al del nacional del mismo número (distancia > 0.40, ver *Calidad de datos y guardas*). No se estandariza solo. | Si es una variación de escritura del nombre del nacional, cargar la equivalencia en `equivalencias_nombre` y correr `dbt build`. Si es el nombre propio y legítimo del distrito, no hay que hacer nada: el aviso es esperable y se repite en cada cierre. |
+| `warn_nombres_divergentes_del_nacional` (informativo) | Un partido de distrito que integra un nacional figura, en el último cierre, con un nombre demasiado distinto al del nacional del mismo número (distancia > 0.40, ver *Calidad de datos y guardas*). Solo casos nuevos. No se estandariza solo. | Si es el nombre propio y legítimo del partido de distrito, no hay que hacer nada. Si es un error de carga, cargar la equivalencia en `equivalencias_nombre` y correr `dbt build`. |
 | `warn_distritos_inconsistentes` | El nombre de distrito que trae el Excel contradice el número (ej. nro 6 con "CAPITAL FEDERAL", cuando el 6 es CHACO). El nombre se toma del número, así que el riesgo es que **el número** esté mal. | Revisar en el Excel. Si el número está mal, agregar la fila en `dbt/seeds/correcciones_distrito.csv` y correr `dbt build`. |
 
 ### Errores (frenan el cierre)
