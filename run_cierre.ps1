@@ -51,18 +51,40 @@ function PreguntarConTiempo($texto, $segundos) {
     return "n"
 }
 
-# 0) Repo actualizado: el codigo, los modelos y los seeds se comparten por git y
-# todos escriben en las mismas tablas de BigQuery. Si no se puede actualizar limpio
-# (p.ej. cambios locales sin commitear que chocan), se frena el cierre.
+# 0) Garantia de version: el cierre corre SOLO con el codigo exacto de GitHub.
+# El codigo, los modelos y los seeds se comparten por git y todos escriben en las
+# mismas tablas de BigQuery: procesar con otra version pisaria esas tablas.
+# Tres controles; si alguno falla, el cierre no arranca:
+#   a) sin cambios locales sin commitear (ni archivos nuevos sin agregar a git);
+#   b) git pull (baja lo nuevo de GitHub);
+#   c) el commit local es exactamente el de GitHub (ni atrasado ni con commits
+#      sin pushear).
 # --quiet: git escribe su progreso en stderr y eso PowerShell lo trataria como error.
 Set-Location $raiz
+Write-Host "`n> Verificar version (git) ..." -ForegroundColor Cyan
+
+$sucios = git status --porcelain
+if ($sucios) {
+    Write-Host ($sucios -join "`n")
+    Write-Host "FALLO: hay cambios sin commitear (lista de arriba). Commitealos y pushealos, o descartalos, antes del cierre. Proceso detenido." -ForegroundColor Red
+    exit 1
+}
+
 $antes = (git rev-parse --short HEAD).Trim()
 $o = Correr "Actualizar repo (git pull)" { git pull --ff-only --quiet }
-$despues = (git rev-parse --short HEAD).Trim()
+
+$local  = (git rev-parse HEAD).Trim()
+$remoto = (git rev-parse "@{u}").Trim()
+if ($local -ne $remoto) {
+    Write-Host "FALLO: el repo local no coincide con GitHub (local $($local.Substring(0,7)), GitHub $($remoto.Substring(0,7))). Si tenes commits sin pushear, hace git push. Proceso detenido." -ForegroundColor Red
+    exit 1
+}
+
+$despues = $local.Substring(0,7)
 if ($antes -eq $despues) {
-    Write-Host "   sin cambios ($despues)" -ForegroundColor Green
+    Write-Host "   version al dia con GitHub ($despues)" -ForegroundColor Green
 } else {
-    Write-Host "   actualizado: $antes -> $despues" -ForegroundColor Green
+    Write-Host "   actualizado: $antes -> $despues (al dia con GitHub)" -ForegroundColor Green
 }
 
 # 1) Ingesta
