@@ -61,11 +61,7 @@ select
     nro_distrito,
     distrito,
     nro_partido,
-    case
-        when orden = 'NACIONAL' then null
-        when integra_partido_nacional then 'SI'
-        else 'NO'
-    end as integra_nacional,
+    case when integra_partido_nacional then 'SI' else 'NO' end as integra_nacional,
     nombre_anterior,
     format_date('%d-%m-%Y', nombre_anterior_desde) as nombre_anterior_desde,
     format_date('%d-%m-%Y', nombre_anterior_hasta) as nombre_anterior_hasta,
