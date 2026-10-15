@@ -1,5 +1,6 @@
 import base64
 import hashlib
+from datetime import datetime, timezone
 
 import storage
 import parser
@@ -64,6 +65,17 @@ def main():
         if meta is not None and meta.md5_hash == _local_md5(path):
             print(f"[{i}/{total}] [SKIP] sin cambios: {path.name} -> {blob} ({fecha})")
             continue
+
+        # Protección entre máquinas: el contenido es distinto, pero si el blob es
+        # más nuevo que el archivo local, otra máquina subió una versión posterior.
+        # No se pisa (solo se reemplaza con un archivo local más reciente).
+        if meta is not None:
+            local_mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+            if local_mtime <= meta.updated:
+                print(f"[{i}/{total}] [AVISO] el bucket tiene una version mas nueva de "
+                      f"{fecha:%d-%m-%Y} (subida por otra maquina): no se reemplaza "
+                      f"({path.name})")
+                continue
 
         accion = "REEMPLAZO" if meta is not None else "UPLOAD"
         print(f"[{i}/{total}] [{accion}] {path.name} -> {blob} ({fecha})")

@@ -51,11 +51,28 @@ function PreguntarConTiempo($texto, $segundos) {
     return "n"
 }
 
+# 0) Repo actualizado: el codigo, los modelos y los seeds se comparten por git y
+# todos escriben en las mismas tablas de BigQuery. Si no se puede actualizar limpio
+# (p.ej. cambios locales sin commitear que chocan), se frena el cierre.
+# --quiet: git escribe su progreso en stderr y eso PowerShell lo trataria como error.
+Set-Location $raiz
+$antes = (git rev-parse --short HEAD).Trim()
+$o = Correr "Actualizar repo (git pull)" { git pull --ff-only --quiet }
+$despues = (git rev-parse --short HEAD).Trim()
+if ($antes -eq $despues) {
+    Write-Host "   sin cambios ($despues)" -ForegroundColor Green
+} else {
+    Write-Host "   actualizado: $antes -> $despues" -ForegroundColor Green
+}
+
 # 1) Ingesta
 Set-Location (Join-Path $raiz "src")
 
 $o = Correr "Upload (carpeta -> bucket)" { & $py upload.py }
 Write-Host ("   subidos: {0} | reemplazados: {1} | sin cambios: {2}" -f (Contar $o "\[UPLOAD\]"), (Contar $o "\[REEMPLAZO\]"), (Contar $o "\[SKIP\]")) -ForegroundColor Green
+foreach ($a in ($o -split "`n" | Select-String "\[AVISO\]")) {
+    Write-Host ("   " + $a.ToString().Trim()) -ForegroundColor Yellow
+}
 
 $o = Correr "Ingest (bucket -> BigQuery)" { & $py ingest.py }
 Write-Host ("   cargados: {0} | reemplazados: {1} | sin cambios: {2}" -f (Contar $o "\[LOAD\]"), (Contar $o "\[REEMPLAZO\]"), (Contar $o "\[SKIP\]")) -ForegroundColor Green
