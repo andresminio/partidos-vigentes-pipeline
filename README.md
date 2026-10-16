@@ -324,7 +324,7 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 
 ### Ciclo de cada cierre
 
-1. `run_cierre.ps1` corre upload → ingest → `dbt build` → refresh de las hojas. El cierre queda completo.
+1. `run_cierre.ps1` corre verificación de versión (git) → upload → ingest → `dbt build` → refresh de las hojas. El cierre queda completo.
 2. Si hay cambios pendientes, pregunta **"Validar ahora? (s/n)"** (60 s; sin respuesta = no).
    - **s:** abre la consola de `validar.py`; al salir corre `dbt build` y el refresh otra vez.
    - **n:** los cambios quedan pendientes y se avisan en el próximo build.
@@ -353,7 +353,7 @@ Cualquier otro cambio del nombre final, incluido empezar o dejar de integrar un 
 
 Regla práctica: si el error es **masivo** o se va a repetir en los próximos Excel, va al macro o a las equivalencias; si es de **un partido** y aparece como cambio detectado, se resuelve en la validación. Antes de cargar una equivalencia, verificar que el nombre "erróneo" no sea el nombre legítimo de otro partido.
 
-> **Correcciones:** hay dos caminos según el tipo de error.
+> **Correcciones**, según el tipo de error:
 > - **Error de `nro_distrito`** (número que no coincide con la identidad del partido): se agrega una fila al seed `dbt/seeds/correcciones_distrito.csv` y se corre `dbt build`. No se toca el raw; la corrección queda versionada.
 > - **Error de nombre:** según el alcance, ver la tabla de herramientas en *Flujo de cambios de nombre* (macro `limpiar_nombre`, seed `equivalencias_nombre` o `validar.py`), y después `dbt build`.
 > - **Archivo corregido de un mes ya cargado:** si llega un segundo archivo del mismo mes porque hubo un cambio, se pone en `data/` y se corre `run_cierre.ps1`. Entre los archivos de un mismo mes se toma el de **fecha de modificación más reciente**, y el pipeline reemplaza ese mes solo (ver *Idempotencia*).
@@ -361,12 +361,12 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 
 ## Avisos y errores al procesar (qué hacer)
 
-`run_cierre.ps1` corre en orden **upload → ingest → dbt build → refresh**. En la consola pueden aparecer dos tipos de mensajes:
+`run_cierre.ps1` corre en orden **verificación de versión (git) → upload → ingest → dbt build → refresh**, numerados en la consola de `[1/5]` a `[5/5]`. Pueden aparecer dos tipos de mensajes:
 
 | tipo | cómo se ve | qué pasa |
 |---|---|---|
-| **Error** | en rojo: `FALLO en: <paso> (codigo N). Proceso detenido.` y arriba la salida completa del paso | El cierre **se detiene**. Los pasos siguientes no corren y las hojas quedan con los datos anteriores. Hay que corregir y volver a correr `run_cierre.ps1`. |
-| **Aviso (warn)** | en amarillo: `warning: ... WARN <n> <nombre_del_test>` | El cierre **sigue y se publica**. `<n>` es la cantidad de casos. Se revisan y, si corresponde, se corrigen para el próximo build. |
+| **Error** | en rojo: arriba la salida completa del paso, después `X Fallo este paso (codigo N). Detalle arriba.`, una línea `Que hacer: ...` y al final `Cierre detenido.` | El cierre **se detiene**. Los pasos siguientes no corren y las hojas quedan con los datos anteriores. Hay que corregir y volver a correr `run_cierre.ps1`. |
+| **Aviso (warn)** | en el paso `[4/5]`, separados en `REQUIERE ACCION` (amarillo, `! <n> <descripción>`) e `INFORMATIVO` (gris, `i <n> <descripción>`), cada uno con `-> <qué hacer>` | El cierre **sigue y se publica**. `<n>` es la cantidad de casos. Se revisan y, si corresponde, se corrigen para el próximo build. |
 
 **Ver los casos de un aviso o de un test que falló.** Después del `dbt build`, el SQL ya traducido de cada test queda en `dbt\target\compiled\<proyecto>\tests\<nombre_del_test>.sql`. Se pega en BigQuery y devuelve las filas problemáticas. El archivo de `dbt\tests\` no se puede pegar directo: tiene `{{ ref(...) }}`, que solo entiende dbt.
 
@@ -409,7 +409,7 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 | `ERROR: <hoja> -> HTTP Error 500` o timeout | Falló el Apps Script. Por ejemplo, la vista que lee todavía no existe porque no se corrió `dbt build`. | Revisar en Apps Script → *Ejecuciones*, corregir y volver a correr `python refresh_sheet.py`. |
 | `Falta configurar URLS/TOKEN` | No se encuentra `refresh_config.py`. | Verificar que el archivo esté en `src/`. |
 
-Si anduvo, cada hoja muestra `OK: <hoja> -> OK: datos actualizados <fecha>`. Si falla alguna, `refresh_sheet.py` intenta igual con las demás, al final lista las que fallaron y el cierre se detiene en rojo (`FALLO en: Refresh`).
+Si anduvo, en el cierre cada hoja muestra `OK - <hoja>` (corriendo `refresh_sheet.py` solo: `OK: <hoja> -> OK: datos actualizados <fecha>`). Si falla alguna, `refresh_sheet.py` intenta igual con las demás, al final lista las que fallaron y el cierre se detiene en rojo en el paso `[5/5]`.
 
 ## Tablero
 
