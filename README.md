@@ -96,25 +96,26 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 
 | Recurso | Capa | Descripción |
 |---------|------|-----|
+| `distritos` | seed | Tabla oficial de los 24 distritos electorales: número → nombre canónico, latitud y longitud. |
+| `correcciones_distrito` | seed | Correcciones puntuales de `nro_distrito` mal cargado en la fuente. Una fila por corrección (snapshot + orden + distrito + partido → distrito correcto); auditable en git y aplicada en staging. |
+| `equivalencias_nombre` | seed | Errores de escritura conocidos (`nombre_variante → nombre_canonico`), aplicados por nombre en todos los partidos y cierres. La variante se escribe ya limpia (sin acentos, sin `*VER`, sin espacios alrededor del guion). |
+| `limpiar_nombre` | macro | Reglas de formato globales sobre el nombre: quita `*VER ...` y `ESPERAR ...`, comillas dobles, espacios alrededor del guion y dentro de los paréntesis. Para sumar una regla se agrega un `regexp_replace`. |
 | `stg_partidos` | staging | Tipa los datos crudos, aplica las correcciones de distrito, rellena `nro_partido` faltante desde la historia del partido, construye `partido_key` y estandariza el nombre de distrito. Aplica la cascada de limpieza de nombres (normalización → `limpiar_nombre` → `equivalencias_nombre` → decisiones `ERROR_CARGA`) y conserva `nombre_crudo` y `motivo_nombre` para trazabilidad. |
 | `stg_decisiones_cambios_nombre` | staging | Decisión vigente (la más reciente) por cada cambio de nombre revisado, desde la fuente `decisiones_cambios_nombre.registro`. |
 | `int_partidos` | intermediate | Reemplaza el nombre de los partidos de distrito que integran un nacional por el nombre del nacional (solo si son parecidos; con guarda de similitud). Marca esos casos como `ESTANDARIZACION_NACIONAL`. |
 | `int_cambios_nombre` | intermediate | Detección de cambios de nombre, sin curar: una fila por cada vez que un partido pasa a llamarse distinto, con el tramo del nombre anterior (desde/hasta), la fecha del cambio y `origen_cambio`: `CAMBIO_NACIONAL` si el distrito usaba el nombre del nacional antes y después del cambio (no se valida), `PROPIO` en cualquier otro caso (se valida). |
-| `partidos_historia` | SCD2 | Historización por vigencia: una fila por tramo continuo, con `valid_from`, `valid_to`, `is_current`. |
-| `partidos_vigentes` | marts | Foto actual del Registro (`is_current`). |
-| `movimientos_mensuales` | marts | Altas y bajas por mes (más `neto`). |
 | `partidos_snapshots` | marts | Detalle por partido y mes (todos los snapshots); backbone del tablero, con `is_current` y coordenadas por distrito. |
 | `resumen_mensual_partidos` | marts | Cantidad de partidos por tipo de orden y mes. |
 | `partidos_cambios_nombre` | marts | Cambios de nombre **homologados**: los aceptados en la validación humana, más los `CAMBIO_NACIONAL` de un nacional aceptado. Tabla oficial. |
 | `auditoria_cambios_nombre` | marts | **Todos** los cambios de nombre, por partido y cierre (sobre cada cierre, no sobre el SCD2): `nombre_crudo`, `nombre_final` y `motivo`. |
-| `distritos` | seed | Tabla oficial de los 24 distritos electorales: número → nombre canónico y coordenadas (centro de provincia). |
-| `correcciones_distrito` | seed | Correcciones puntuales de `nro_distrito` mal cargado en la fuente. Una fila por corrección (snapshot + orden + distrito + partido → distrito correcto); auditable en git y aplicada en staging. |
-| `equivalencias_nombre` | seed | Errores de escritura conocidos (`nombre_variante → nombre_canonico`), aplicados por nombre en todos los partidos y cierres. La variante se escribe ya limpia (sin acentos, sin `*VER`, sin espacios alrededor del guion). |
-| `limpiar_nombre` | macro | Reglas de formato globales sobre el nombre: quita `*VER ...` y `ESPERAR ...`, comillas dobles, espacios alrededor del guion y dentro de los paréntesis. Para sumar una regla se agrega un `regexp_replace`. |
-| `pub_historizacion` | publicacion | Presentación de la historización para Google Sheets: nombres finales, SI/NO, fechas dd-mm-aaaa, "cierre actual" en la vigencia abierta y orden de filas. |
+| `partidos_historia` | marts (SCD2) | Historización por vigencia: una fila por tramo continuo, con `valid_from`, `valid_to`, `is_current`. |
+| `partidos_vigentes` | marts | Foto actual del Registro (`is_current`). |
+| `movimientos_mensuales` | marts | Altas y bajas por mes (más `neto`). |
 | `pub_resumen` | publicacion | Presentación del resumen mensual para Google Sheets (`snapshot_date` como `fecha_cierre`). |
-| `pub_vigentes` | publicacion | Presentación de la foto actual (partidos vigentes) para Google Sheets, con fechas dd-mm-aaaa y nombres coherentes con la historización. |
 | `pub_cambios_nombre` | publicacion | Presentación de los cambios de nombre homologados para la hoja de cambios de nombre (primera hoja del archivo). No incluye los datos de la decisión (decisión, fecha, fundamento), que quedan en `partidos_cambios_nombre` y en el registro de decisiones. |
+| `pub_auditoria_cambios_nombre` | publicacion | Presentación de la auditoría de cambios de nombre para la segunda hoja del archivo de cambios de nombre: cierre dd-mm-aaaa y orden de filas (nacionales por número de partido; después partidos de distrito por número de distrito y de partido; dentro de cada partido, por cierre). |
+| `pub_historizacion` | publicacion | Presentación de la historización para Google Sheets: nombres finales, SI/NO, fechas dd-mm-aaaa, "cierre actual" en la vigencia abierta y orden de filas. |
+| `pub_vigentes` | publicacion | Presentación de la foto actual (partidos vigentes) para Google Sheets, con fechas dd-mm-aaaa y nombres coherentes con la historización. |
 
 ## Esquema y metadatos (raw)
 
