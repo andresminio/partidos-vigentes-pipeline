@@ -1,8 +1,9 @@
-# Pipeline — Registro de Partidos Políticos
+# Pipeline — Registro Nacional de Agrupaciones Políticas
 
-Pipeline mensual que ingesta el listado oficial de partidos políticos vigentes, lo historiza en BigQuery con SCD Tipo 2 y lo deja listo para consumo analítico.
+Pipeline mensual que ingesta el listado oficial de partidos políticos vigentes, lo historiza en BigQuery mediante SCD Tipo 2 y lo prepara para su consumo analítico. Adoptado como proceso institucional para dar cumplimiento al artículo 39 de la Ley 23.298. 
 
 La ingesta (Python) preserva una capa **raw** inmutable con los datos tal cual llegan de la fuente, más metadatos de trazabilidad. La limpieza, las reglas de negocio, la historización y las tablas de consumo se implementan en **dbt** sobre BigQuery. El consumo se hace desde **Looker Studio** (conexión nativa a BigQuery) y desde **Google Sheets**, alimentado por una capa de **presentación** (`publicacion`) que un Apps Script vuelca tal cual (todo el formato vive en dbt, no en el script).
+
 
 ## Decisiones de diseño
 
