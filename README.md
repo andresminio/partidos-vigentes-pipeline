@@ -4,11 +4,6 @@ Pipeline mensual que ingesta el listado oficial de partidos políticos vigentes,
 
 La ingesta (Python) preserva una capa **raw** inmutable con los datos tal cual llegan de la fuente, más metadatos de trazabilidad. La limpieza, las reglas de negocio, la historización y las tablas de consumo se implementan en **dbt** sobre BigQuery. El consumo se hace desde **Looker Studio** (conexión nativa a BigQuery) y desde **Google Sheets**, alimentado por una capa de **presentación** (`publicacion`) que un Apps Script vuelca tal cual (todo el formato vive en dbt, no en el script).
 
-## Fuente
-
-Registro Nacional de Agrupaciones Políticas — Argentina
-Publicación mensual en Excel. ~750 registros por snapshot
-
 ## Decisiones de diseño
 
 - **Raw inmutable:** se preserva una capa raw sin transformaciones para auditoría; toda la lógica vive en dbt.
@@ -418,3 +413,8 @@ Consumo en Looker Studio: https://datastudio.google.com/reporting/b4efb9aa-1c41-
 ## Autor
 
 Andrés Miño — andresminio@gmail.com
+
+## Fuente
+
+Registro Nacional de Agrupaciones Políticas — Argentina
+Publicación mensual en Excel. ~750 registros por snapshot
