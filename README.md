@@ -410,10 +410,6 @@ Si anduvo, en el cierre cada hoja muestra `OK - <hoja>` (corriendo `refresh_shee
 
 Consumo en Looker Studio: https://datastudio.google.com/reporting/b4efb9aa-1c41-40e6-9f9d-59306971d4c3
 
-## Autor
-
-Andrés Miño — andresminio@gmail.com
-
 ## Fuente
 
 Registro Nacional de Agrupaciones Políticas — Argentina
