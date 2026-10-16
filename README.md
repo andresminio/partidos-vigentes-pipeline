@@ -18,6 +18,7 @@ La ingesta (Python) preserva una capa **raw** inmutable con los datos tal cual l
 - **Limpieza de nombres en cascada, de lo general a lo particular:** (1) normalización (mayúsculas, sin acentos preservando la ñ, espacios colapsados); (2) macro `limpiar_nombre`, reglas de formato globales (quita anotaciones `*VER ...` y `ESPERAR ...`, comillas dobles, espacios alrededor del guion y del lado de adentro de los paréntesis); (3) seed `equivalencias_nombre`, errores de escritura y notas libres conocidas que se corrigen **por nombre en todos los partidos y cierres**; (4) decisiones de la validación humana (`ERROR_CARGA`), solo para un partido y un rango de fechas. Cada paso le gana al anterior.
 - **Validación humana de cambios de nombre (human in the loop):** el pipeline detecta los cambios de nombre, pero una persona decide si son reales (`ACEPTADO`) o errores de carga (`ERROR_CARGA` + nombre correcto). Las decisiones son **datos, no código**: viven en BigQuery (`decisiones_cambios_nombre.registro`), centralizadas para todos los que corren el pipeline, en una tabla de **solo inserción** (nunca se edita ni se borra; prevalece la decisión más reciente) con autor y fecha automáticos. Los distritales que heredan el nombre de su nacional heredan también su decisión.
 - **Trazabilidad raw vs. procesamiento:** staging conserva el nombre crudo y registra qué paso lo modificó (`motivo_nombre`). La auditoría (`auditoria_cambios_nombre`) muestra **todos** los cambios, por cualquier motivo, separando lo que trajo el Excel de lo que hizo el procesamiento; la tabla oficial (`partidos_cambios_nombre`) muestra solo los homologados.
+- **Google Sheets para usuarios finales:** la información se disponibiliza en Google Sheets para usuarios finales **internos y externos**, que la consultan sin acceso a BigQuery. Las hojas se alimentan de la capa de presentación de dbt (`publicacion`), donde vive todo el formato; un Apps Script solo vuelca las vistas.
 - **Calidad testeada:** tests de dbt sobre unicidad de clave, integridad del SCD2 (sin solapamientos, rango válido, un solo vigente) y guardas de inconsistencia.
 
 ## Arquitectura
@@ -45,7 +46,7 @@ dbt
   ├─ SCD2 (historia)   -> historización por vigencia (valid_from / valid_to / is_current)
   ├─ marts             -> partidos_snapshots (detalle), partidos_vigentes, movimientos_mensuales, resumen_mensual_partidos,
   │                       partidos_cambios_nombre (homologados), auditoria_cambios_nombre (todos los cambios)
-  └─ publicacion       -> vistas de presentación (pub_historizacion, pub_resumen, pub_vigentes, pub_cambios_nombre)
+  └─ publicacion       -> vistas de presentación (pub_historizacion, pub_resumen, pub_vigentes, pub_cambios_nombre, pub_auditoria_cambios_nombre)
       ▲
       │  decisiones (source)
 BigQuery  decisiones_cambios_nombre.registro  <- Python (validar.py): validación humana por consola o Excel
@@ -107,11 +108,11 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 | `partidos_historia` | marts (SCD2) | Historización por vigencia: una fila por tramo continuo, con `valid_from`, `valid_to`, `is_current`. |
 | `partidos_vigentes` | marts | Foto actual del Registro (`is_current`). |
 | `movimientos_mensuales` | marts | Altas y bajas por mes (más `neto`). |
-| `pub_resumen` | publicacion | Presentación del resumen mensual para Google Sheets (`snapshot_date` como `fecha_cierre`). |
-| `pub_cambios_nombre` | publicacion | Presentación de los cambios de nombre homologados para la hoja de cambios de nombre (primera hoja del archivo). No incluye los datos de la decisión (decisión, fecha, fundamento), que quedan en `partidos_cambios_nombre` y en el registro de decisiones. |
-| `pub_auditoria_cambios_nombre` | publicacion | Presentación de la auditoría de cambios de nombre para la segunda hoja del archivo de cambios de nombre: cierre dd-mm-aaaa y orden de filas (nacionales por número de partido; después partidos de distrito por número de distrito y de partido; dentro de cada partido, por cierre). |
-| `pub_historizacion` | publicacion | Presentación de la historización para Google Sheets: nombres finales, SI/NO, fechas dd-mm-aaaa, "cierre actual" en la vigencia abierta y orden de filas. |
-| `pub_vigentes` | publicacion | Presentación de la foto actual (partidos vigentes) para Google Sheets, con fechas dd-mm-aaaa y nombres coherentes con la historización. |
+| `pub_resumen` | publicacion | Presentación del resumen mensual para Google Sheets (`snapshot_date` como `fecha_cierre`). Sheet **Historización**, 2ª hoja ("Resumen"). |
+| `pub_cambios_nombre` | publicacion | Presentación de los cambios de nombre homologados para la hoja de cambios de nombre (primera hoja del archivo). No incluye los datos de la decisión (decisión, fecha, fundamento), que quedan en `partidos_cambios_nombre` y en el registro de decisiones. Sheet **Cambios de nombre**, 1ª hoja. |
+| `pub_auditoria_cambios_nombre` | publicacion | Presentación de la auditoría de cambios de nombre para la segunda hoja del archivo de cambios de nombre: cierre dd-mm-aaaa y orden de filas (nacionales por número de partido; después partidos de distrito por número de distrito y de partido; dentro de cada partido, por cierre). Sheet **Cambios de nombre**, 2ª hoja ("Auditoría"). |
+| `pub_historizacion` | publicacion | Presentación de la historización para Google Sheets: nombres finales, SI/NO, fechas dd-mm-aaaa, "cierre actual" en la vigencia abierta y orden de filas. Sheet **Historización**, 1ª hoja ("Historización"). |
+| `pub_vigentes` | publicacion | Presentación de la foto actual (partidos vigentes) para Google Sheets, con fechas dd-mm-aaaa y nombres coherentes con la historización. Sheet **Partidos vigentes**. |
 
 ## Ingesta
 
@@ -311,7 +312,7 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 | Los pendientes para decidir | `python validar.py` (consola) |
 | Todos los cambios detectados | hoja **Auditoría** del Sheet de cambios de nombre (motivos `PENDIENTE`, `CAMBIO_ACEPTADO`, `CAMBIO_NACIONAL`), o BigQuery: `dbt_dev.auditoria_cambios_nombre` |
 | Los cambios homologados (oficial) | Google Sheet de cambios de nombre, o BigQuery: `dbt_dev.partidos_cambios_nombre` / `dbt_dev.pub_cambios_nombre` |
-| Las decisiones tomadas (quién, cuándo, por qué) | BigQuery: `decisiones_cambios_nombre.registro` o `dbt_dev.partidos_cambios_nombre` |
+| Las decisiones tomadas (quién, cuándo, por qué) | BigQuery: `decisiones_cambios_nombre.registro` (todas, incluidas las reemplazadas) |
 | El nombre final de cada partido en cada cierre | Google Sheet de Historización / vigentes, o BigQuery: `dbt_dev.partidos_snapshots` |
 
 > La hoja de Google es una **copia** de la vista al momento del último refresh. Si se decide algo y no se refresca, la hoja queda desactualizada.
