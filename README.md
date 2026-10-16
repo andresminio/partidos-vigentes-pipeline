@@ -414,4 +414,5 @@ Consumo en Looker Studio: https://datastudio.google.com/reporting/b4efb9aa-1c41-
 ## Fuente
 
 Registro Nacional de Agrupaciones Políticas — Argentina
+
 Publicación mensual en Excel. ~750 registros por snapshot
