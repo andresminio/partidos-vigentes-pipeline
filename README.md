@@ -309,11 +309,10 @@ En paralelo: auditoria_cambios_nombre -> TODOS los cambios, crudo vs. final, y e
 |---|---|
 | Cuántos cambios faltan validar | warning `warn_cambios_nombre_pendientes` al final del `dbt build` / `run_cierre.ps1` |
 | Los pendientes para decidir | `python validar.py` (consola) |
-| Todos los cambios detectados, sin curar | BigQuery: `dbt_dev.int_cambios_nombre` |
+| Todos los cambios detectados | hoja **Auditoría** del Sheet de cambios de nombre (motivos `PENDIENTE`, `CAMBIO_ACEPTADO`, `CAMBIO_NACIONAL`), o BigQuery: `dbt_dev.auditoria_cambios_nombre` |
 | Los cambios homologados (oficial) | Google Sheet de cambios de nombre, o BigQuery: `dbt_dev.partidos_cambios_nombre` / `dbt_dev.pub_cambios_nombre` |
 | Las decisiones tomadas (quién, cuándo, por qué) | BigQuery: `decisiones_cambios_nombre.registro` o `dbt_dev.partidos_cambios_nombre` |
-| Todo lo que cambió y qué lo resolvió (raw vs. procesamiento) | BigQuery: `dbt_dev.auditoria_cambios_nombre` |
-| El nombre final de cada partido en cada cierre | Google Sheet de Historización / vigentes, o BigQuery: `dbt_dev.int_partidos` |
+| El nombre final de cada partido en cada cierre | Google Sheet de Historización / vigentes, o BigQuery: `dbt_dev.partidos_snapshots` |
 
 > La hoja de Google es una **copia** de la vista al momento del último refresh. Si se decide algo y no se refresca, la hoja queda desactualizada.
 
