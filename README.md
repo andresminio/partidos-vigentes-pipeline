@@ -145,7 +145,7 @@ Metadatos incorporados por la ingesta:
 
 ## Qué ejecuta `dbt build`
 
-Cada `dbt build` recorre **78 pasos**: 3 seeds, 16 modelos y 59 controles (tests). Es el total que muestra el cierre en el paso 4 ("OK - 78 pasos..."); si se agregan o quitan modelos o controles, el número cambia.
+Cada `dbt build` recorre **78 pasos**: 3 seeds, 16 modelos y 59 controles (tests). Es el total que muestra el cierre en el paso 4 ("OK - 78 pasos...").
 
 **3 seeds** (tablas que se cargan desde los CSV de `dbt/seeds/`):
 
