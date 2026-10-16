@@ -4,6 +4,11 @@ Pipeline mensual que ingesta el listado oficial de partidos políticos vigentes,
 
 La ingesta (Python) preserva una capa **raw** inmutable con los datos tal cual llegan de la fuente, más metadatos de trazabilidad. La limpieza, las reglas de negocio, la historización y las tablas de consumo se implementan en **dbt** sobre BigQuery. El consumo se hace desde **Looker Studio** (conexión nativa a BigQuery) y desde **Google Sheets**, alimentado por una capa de **presentación** (`publicacion`) que un Apps Script vuelca tal cual (todo el formato vive en dbt, no en el script).
 
+## Fuente
+
+Registro Nacional de Agrupaciones Políticas — Argentina
+Publicación mensual en Excel. ~750 registros por snapshot
+
 ## Decisiones de diseño
 
 - **Raw inmutable:** se preserva una capa raw sin transformaciones para auditoría; toda la lógica vive en dbt.
@@ -68,10 +73,6 @@ Airflow (orquestación mensual)
 - **Orquestación:** Apache Airflow (ejecución mensual)
 - **Autenticación local:** Application Default Credentials (ADC), sin claves de service account
 
-## Tablero
-
-Consumo en Looker Studio: https://datastudio.google.com/reporting/b4efb9aa-1c41-40e6-9f9d-59306971d4c3
-
 ## Estructura del repositorio
 
 Dos mitades: `src/` (ingesta en Python) y `dbt/` (transformación).
@@ -117,7 +118,29 @@ El flujo mensual son dos pasos: `upload.py` (carpeta local → bucket) y luego `
 | `pub_historizacion` | publicacion | Presentación de la historización para Google Sheets: nombres finales, SI/NO, fechas dd-mm-aaaa, "cierre actual" en la vigencia abierta y orden de filas. |
 | `pub_vigentes` | publicacion | Presentación de la foto actual (partidos vigentes) para Google Sheets, con fechas dd-mm-aaaa y nombres coherentes con la historización. |
 
-## Esquema y metadatos (raw)
+## Ingesta
+
+### Convención de nombre de archivo
+
+**Archivo de origen (carpeta local).** El nombre determina el `snapshot_date`, así que debe respetar el formato:
+
+```
+Partidos [Políticos] Vigentes [al] DD_MM_YYYY.xlsx
+```
+
+- **"Políticos" opcional:** valen `Partidos Vigentes ...` y `Partidos Políticos Vigentes ...`.
+- **"al" opcional:** la fuente a veces lo omite (`Partidos Políticos Vigentes 30-11-2025.xlsx`).
+- **Separador de fecha flexible:** guion bajo o guion medio (`31_10_2025` o `31-10-2025`).
+- **Capitalización y acentos libres.**
+- Los archivos que no cumplan el formato se ignoran (no se suben ni se cargan).
+
+**Nombre en el bucket (estándar).** Al subir, cada archivo se renombra a una forma canónica derivada de la fecha:
+
+```
+partidos_vigentes_DD_MM_YYYY.xlsx
+```
+
+### Esquema y metadatos (raw)
 
 Columnas de datos de la fuente (se cargan como STRING; el tipado vive en staging):
 
@@ -143,7 +166,19 @@ Metadatos incorporados por la ingesta:
 | `_ingested_at` | Timestamp de carga (UTC). |
 | `_row_number` | Número de fila dentro del Excel. |
 
-## Qué ejecuta `dbt build`
+### Idempotencia
+
+El pipeline deduplica por `snapshot_date`, no por nombre de archivo. Detecta qué meses aún no están cargados (comparando contra los `snapshot_date` ya presentes en BigQuery), los ingesta en orden cronológico y omite los ya cargados. La subida al bucket aplica la misma lógica por fecha. Ejecutar el pipeline múltiples veces no genera duplicados, aunque un mismo mes llegue con distinto nombre, capitalización o separador.
+
+**Actualización dentro del mes (reemplazo).** Si llega una versión nueva de un mes ya cargado (ej. `... 31_08_2026 (2).xlsx` o `...-copia.xlsx`), el pipeline la **reemplaza** automáticamente, sin reprocesamiento manual:
+
+- `upload.py` agrupa los archivos locales por `snapshot_date` y sube el de **modificación más reciente** (mtime) al nombre canónico (un blob por fecha). Solo re-sube si el **contenido cambió** (compara `md5`), para no disparar reprocesos innecesarios.
+- `ingest.py` compara el `updated` del blob contra el `_ingested_at` cargado: si el blob es **más nuevo**, borra las filas de ese mes y recarga la versión nueva; si no, saltea.
+- La columna `Actualizado` (ver marts) refleja el `_ingested_at`, así que queda registrado **cuándo** se procesó cada cierre y sus reemplazos.
+
+## Transformación
+
+### Qué ejecuta `dbt build`
 
 Cada `dbt build` recorre **78 pasos**: 3 seeds, 16 modelos y 59 controles (tests). Es el total que muestra el cierre en el paso 4 ("OK - 78 pasos...").
 
@@ -153,7 +188,7 @@ Cada `dbt build` recorre **78 pasos**: 3 seeds, 16 modelos y 59 controles (tests
 |---|---|
 | `distritos` | número y nombre oficial de cada distrito |
 | `correcciones_distrito` | número de distrito mal cargado en el Excel para un partido en un cierre, con el número correcto |
-| `equivalencias_nombre` | nombre mal escrito → nombre correcto |
+| `equivalencias_nombre` | nombre partidario mal escrito → nombre correcto |
 
 **16 modelos** (tablas y vistas que arma el pipeline):
 
@@ -202,7 +237,7 @@ Reglas propias:
 | `assert_cambios_nombre_curada_grano_unico` | la tabla oficial tiene un solo cambio por partido y cierre |
 | `assert_auditoria_cambios_nombre_grano_unico` | la auditoría tiene una fila por partido y cierre |
 
-## Calidad de datos y guardas
+### Calidad de datos y guardas
 
 - **Tests de clave y catálogo (staging):** `partido_key + snapshot_date` único, `partido_key` / `nro_distrito` / `nro_partido` no nulos, `orden` ∈ {DISTRITO, NACIONAL}.
 - **Integridad del SCD2 (`partidos_historia`):** grano único (`partido_key + valid_from`), rango válido (`valid_from <= valid_to`), sin solapamientos de vigencia por partido, un solo `is_current` por partido.
@@ -214,36 +249,6 @@ Reglas propias:
   - Ejemplos: `PARTIDO SOCILISTA` vs `PARTIDO SOCIALISTA` → 1 / 18 = **0.06** → se estandariza. `UNITE POR LA LIBERTAD Y LA DIGNIDAD` vs `UNION POR LA LIBERTAD` → 16 / 35 = **0.46** → se reporta.
 - **Guarda de distrito (`warn`):** marca contradicciones número↔nombre de distrito (ej. `nro 6` con "CAPITAL FEDERAL" cuando el 6 es CHACO). Umbral estricto porque los nombres son cortos.
 - **Cambios de nombre:** grano único y nombres distintos en la detección y en la tabla homologada; `warn_cambios_nombre_pendientes` lista en cada cierre los cambios sin decisión; `warn_correccion_no_aplicada` avisa si un ERROR_CARGA sigue apareciendo; la auditoría tiene grano único y valores válidos de `motivo`.
-
-## Idempotencia
-
-El pipeline deduplica por `snapshot_date`, no por nombre de archivo. Detecta qué meses aún no están cargados (comparando contra los `snapshot_date` ya presentes en BigQuery), los ingesta en orden cronológico y omite los ya cargados. La subida al bucket aplica la misma lógica por fecha. Ejecutar el pipeline múltiples veces no genera duplicados, aunque un mismo mes llegue con distinto nombre, capitalización o separador.
-
-**Actualización dentro del mes (reemplazo).** Si llega una versión nueva de un mes ya cargado (ej. `... 31_08_2026 (2).xlsx` o `...-copia.xlsx`), el pipeline la **reemplaza** automáticamente, sin reprocesamiento manual:
-
-- `upload.py` agrupa los archivos locales por `snapshot_date` y sube el de **modificación más reciente** (mtime) al nombre canónico (un blob por fecha). Solo re-sube si el **contenido cambió** (compara `md5`), para no disparar reprocesos innecesarios.
-- `ingest.py` compara el `updated` del blob contra el `_ingested_at` cargado: si el blob es **más nuevo**, borra las filas de ese mes y recarga la versión nueva; si no, saltea.
-- La columna `Actualizado` (ver marts) refleja el `_ingested_at`, así que queda registrado **cuándo** se procesó cada cierre y sus reemplazos.
-
-## Convención de nombre de archivo
-
-**Archivo de origen (carpeta local).** El nombre determina el `snapshot_date`, así que debe respetar el formato:
-
-```
-Partidos [Políticos] Vigentes [al] DD_MM_YYYY.xlsx
-```
-
-- **"Políticos" opcional:** valen `Partidos Vigentes ...` y `Partidos Políticos Vigentes ...`.
-- **"al" opcional:** la fuente a veces lo omite (`Partidos Políticos Vigentes 30-11-2025.xlsx`).
-- **Separador de fecha flexible:** guion bajo o guion medio (`31_10_2025` o `31-10-2025`).
-- **Capitalización y acentos libres.**
-- Los archivos que no cumplan el formato se ignoran (no se suben ni se cargan).
-
-**Nombre en el bucket (estándar).** Al subir, cada archivo se renombra a una forma canónica derivada de la fecha:
-
-```
-partidos_vigentes_DD_MM_YYYY.xlsx
-```
 
 ## Flujo de cambios de nombre
 
@@ -348,12 +353,6 @@ Cualquier otro cambio del nombre final, incluido empezar o dejar de integrar un 
 
 Regla práctica: si el error es **masivo** o se va a repetir en los próximos Excel, va al macro o a las equivalencias; si es de **un partido** y aparece como cambio detectado, se resuelve en la validación. Antes de cargar una equivalencia, verificar que el nombre "erróneo" no sea el nombre legítimo de otro partido.
 
-### Controles (tests dbt)
-
-- `warn_cambios_nombre_pendientes` (warn): cambios sin decisión.
-- `warn_correccion_no_aplicada` (warn): un ERROR_CARGA cuyo cambio sigue apareciendo.
-- Grano único en la detección, en la tabla oficial y en la auditoría; valores válidos de `motivo`.
-
 > **Correcciones:** hay dos caminos según el tipo de error.
 > - **Error de `nro_distrito`** (número que no coincide con la identidad del partido): se agrega una fila al seed `dbt/seeds/correcciones_distrito.csv` y se corre `dbt build`. No se toca el raw; la corrección queda versionada.
 > - **Error de nombre:** según el alcance, ver la tabla de herramientas en *Flujo de cambios de nombre* (macro `limpiar_nombre`, seed `equivalencias_nombre` o `validar.py`), y después `dbt build`.
@@ -412,10 +411,9 @@ Regla práctica: si el error es **masivo** o se va a repetir en los próximos Ex
 
 Si anduvo, cada hoja muestra `OK: <hoja> -> OK: datos actualizados <fecha>`. Si falla alguna, `refresh_sheet.py` intenta igual con las demás, al final lista las que fallaron y el cierre se detiene en rojo (`FALLO en: Refresh`).
 
-## Fuente
+## Tablero
 
-Registro Nacional de Agrupaciones Políticas — Argentina
-Publicación mensual en Excel. ~750 registros por snapshot
+Consumo en Looker Studio: https://datastudio.google.com/reporting/b4efb9aa-1c41-40e6-9f9d-59306971d4c3
 
 ## Autor
 
