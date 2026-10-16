@@ -48,3 +48,6 @@ Comandos para forzar disparador en terminal.txt
 
 # === Archivos de trabajo de la validacion masiva (validar.py --exportar) ===
 revision/
+
+# === Archivos locales de cada usuario (no van al repo) ===
+/archivos locales/
